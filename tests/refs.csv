@@ -1,0 +1,4 @@
+,Value,Ref
+10,100,=Value50+1
+50,=Value10*2,0
+1,=Ref10+Ref50,5
