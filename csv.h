@@ -11,14 +11,14 @@ typedef enum {
 
 typedef struct {
     char* raw_data;
-    int value;
     CellState state;
+    int value;
 } Cell;
 
 typedef struct {
+    Cell** grid;
     char** col_names;
     int* row_ids;
-    Cell** grid;
     int col_count;
     int row_count;
 } Table;
