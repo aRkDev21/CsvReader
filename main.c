@@ -6,6 +6,7 @@ int main (int argc, char* argv[]) {
         printf("Missed *.csv file!\n");
         return 0;
     }
+    
     printf("Processing file: %s\n", argv[1]);
     Table* t = read_csv(argv[1]);
     if (!t) return 1;
@@ -16,7 +17,3 @@ int main (int argc, char* argv[]) {
     
     return 0;
 }
-
-/*
-more tests
-*/

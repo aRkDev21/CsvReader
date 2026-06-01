@@ -60,35 +60,36 @@ Table* read_csv(const char* filename) {
 
     trim_newline(line);
 
-        table->col_count = 0;
-        table->col_names = NULL;
+    table->col_count = 0;
+    table->col_names = NULL;
 
-        char* line_ptr = line;
-        char* next_comma = strpbrk(line_ptr, ",");
+    char* line_ptr = line;
+    char* next_comma = strchr(line_ptr, ',');
         
         
-        if (next_comma) {
-            line_ptr = next_comma + 1; 
+    // read first line 
+    if (next_comma) {
+        line_ptr = next_comma + 1; // skip first comma
             
-            while (line_ptr && *line_ptr != '\0') {
-                next_comma = strpbrk(line_ptr, ",");
-                if (next_comma) {
-                    *next_comma = '\0';
-                }
+        while (line_ptr && *line_ptr != '\0') {
+            next_comma = strchr(line_ptr, ',');
+            if (next_comma) {
+                *next_comma = '\0';
+            }
 
-                table->col_count++;
-                table->col_names = realloc(table->col_names, table->col_count * sizeof(char*));
-                table->col_names[table->col_count - 1] = strdup(line_ptr);
+            table->col_count++;
+            table->col_names = realloc(table->col_names, table->col_count * sizeof(char*));
+            table->col_names[table->col_count - 1] = strdup(line_ptr);
 
-                if (next_comma) {
-                    line_ptr = next_comma + 1;
-                } else {
-                    line_ptr = NULL;
-                }
+            if (next_comma) {
+                line_ptr = next_comma + 1;
+            } else {
+                line_ptr = NULL;
             }
         }
+    }
 
-        free(line);
+    free(line);
     
     
 
@@ -113,7 +114,7 @@ Table* read_csv(const char* filename) {
         char *line_ptr = line;
         char *next_comma;
 
-        next_comma = strpbrk(line_ptr, ",");
+        next_comma = strchr(line_ptr, ',');
 
         if (next_comma) {
             *next_comma = '\0';
@@ -122,7 +123,7 @@ Table* read_csv(const char* filename) {
         }
 
         for (int j = 0; j < table->col_count; j++) {
-            next_comma = strpbrk(line_ptr, ",");
+            next_comma = strchr(line_ptr, ',');
             
             char *field_value;
             if (next_comma) {

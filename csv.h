@@ -29,9 +29,6 @@ void free_table(Table*);
 
 
 
-int find_col_index(Table*, char*);
-int find_row_index(Table*, int);
-int get_arg_value(Table*, char*, int*);
 void evaluate_cell(Table*, int, int);
 void evaluate_all(Table*);
 #endif
