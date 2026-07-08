@@ -47,7 +47,7 @@ UART_HandleTypeDef huart2;
 SRAM_HandleTypeDef hsram1;
 
 /* USER CODE BEGIN PV */
-
+static JOYState_TypeDef JoyState = JOY_NONE;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -106,10 +106,17 @@ int main(void)
   Table* table = read_csv(csv_data);
   if (table == NULL) {
       display_error("Failed to parse CSV data");
-      Error_Handler();
   }
   evaluate_all(table);
+
+  int cur_row = 0;
+  int cur_col = 0;
   render_table_to_lcd(table, 0, 0, 2, 0);
+  uint8_t status = 0;
+  status = BSP_JOY_Init(JOY_MODE_GPIO);
+  if (status != HAL_OK) {
+      display_error("Failed to initialize joystick");
+  }
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -117,7 +124,35 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-
+    JoyState = BSP_JOY_GetState();
+    switch (JoyState) {
+      case JOY_UP:
+          if (cur_row > 0) {
+              cur_row--;
+          }
+          break;
+      case JOY_DOWN:
+          if (cur_row < table->row_count - 1) {
+              cur_row++;
+          }
+          break;     
+      case JOY_LEFT:
+          if (cur_col > 0) {
+              cur_col--;
+          }
+          break;
+      case JOY_RIGHT:
+          if (cur_col < table->col_count - 1) {
+              cur_col++;
+          }
+          break;
+      default:
+          break;
+    }
+    if (JoyState != JOY_NONE) {
+        render_table_to_lcd(table, 0, 0, cur_row, cur_col);
+    }
+    HAL_Delay(200);
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
