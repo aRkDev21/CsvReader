@@ -17,6 +17,6 @@
 
 void init_lcd();
 void display_error(const char*);
-void render_table_to_lcd(Table*);
+void render_table_to_lcd(Table*, int, int, int, int);
 
 #endif /* CSV_RENDER_H */

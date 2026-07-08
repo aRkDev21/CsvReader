@@ -109,7 +109,7 @@ int main(void)
       Error_Handler();
   }
   evaluate_all(table);
-  render_table_to_lcd(table);
+  render_table_to_lcd(table, 0, 0, 2, 0);
   /* USER CODE END 2 */
 
   /* Infinite loop */
