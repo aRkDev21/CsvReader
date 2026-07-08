@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "stm32412g_discovery_lcd.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -48,6 +49,8 @@ SRAM_HandleTypeDef hsram1;
 
 /* USER CODE BEGIN PV */
 static JOYState_TypeDef JoyState = JOY_NONE;
+static TS_StateTypeDef TS_State = {0};
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -62,12 +65,11 @@ static void MX_I2C1_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-const char* csv_data = ",A,B,C,VeryLongHeaderNameTooLongFloat, NextColumn\n"
-                      "1,0,0,1,12\n"
+const char* csv_data = ",A,B,C,VeryLongHeaderNameTooLongFloat,NextColumn\n"
+                      "1,0,0,1,12,\n"
                       "2,2,=A1+C30,0,3,1\n"
                       "30,0,=6/B1,5,6,-2\n"
-                      "3210900,0,=B2*0,5,1,-5\n"
-;
+                      "3210900,0,=B2*0,5,1,-5\n";
 /* USER CODE END 0 */
 
 /**
@@ -112,20 +114,32 @@ int main(void)
   int cur_row = 0;
   int cur_col = 0;
   int start_row = 0;
-  int start_col = 4;
+  int start_col = 0;
   render_table_to_lcd(table, start_row, start_col, cur_row, cur_col);
+
   uint8_t status = 0;
   status = BSP_JOY_Init(JOY_MODE_GPIO);
   if (status != HAL_OK) {
       display_error("Failed to initialize joystick");
   }
+
+  // touchscreen initialization
+  uint16_t tx_x, ts_y;
+  s_status = TS_OK;
+  ts_status = BSP_TS_Init(BSP_LCD_GetXSize(), BSP_LCD_GetYSize());
+
+  if (ts_status != TS_OK) {
+      display_error("Failed to initialize touchscreen");
+  }
+
+
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    /* USER CODE END WHILE */
     JoyState = BSP_JOY_GetState();
     switch (JoyState) {
       case JOY_UP:
@@ -155,9 +169,13 @@ int main(void)
         update_viewport(cur_row, cur_col, &start_row, &start_col, table);
         render_table_to_lcd(table, start_row, start_col, cur_row, cur_col);
     }
+
+
+
     HAL_Delay(100);
   }
-
+  /* USER CODE END WHILE */
+    
   /* USER CODE BEGIN 3 */
   free_table(table);
   /* USER CODE END 3 */
