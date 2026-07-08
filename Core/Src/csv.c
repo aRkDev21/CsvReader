@@ -57,6 +57,14 @@ void trim_newline(char* str){
     }
 }
 
+int len_header(Table* table, int i, int j) {
+    int total_length = 0;
+    for (int k = i; k < j; k++) {
+        total_length += strlen(table->col_names[k]) + 1;
+    }
+    return total_length;
+}
+
 int parse_header(char* line, Table* table) {
 	// 1 - success, 0 - error
     char* line_ptr = line;

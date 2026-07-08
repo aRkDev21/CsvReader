@@ -62,12 +62,12 @@ static void MX_I2C1_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-const char* csv_data = ",Age,Gender\n"
-                   "1,30,Female\n"
-                   "2,25,Male\n"
-                   "3,35,Male\n"
-                   "4,28,Male\n"
-                   "5,32,Female\n";
+const char* csv_data = ",A,B,C,VeryLongHeaderNameTooLongFloat, NextColumn\n"
+                      "1,0,0,1,12\n"
+                      "2,2,=A1+C30,0,3,1\n"
+                      "30,0,=6/B1,5,6,-2\n"
+                      "3210900,0,=B2*0,5,1,-5\n"
+;
 /* USER CODE END 0 */
 
 /**
@@ -111,7 +111,9 @@ int main(void)
 
   int cur_row = 0;
   int cur_col = 0;
-  render_table_to_lcd(table, 0, 0, 2, 0);
+  int start_row = 0;
+  int start_col = 4;
+  render_table_to_lcd(table, start_row, start_col, cur_row, cur_col);
   uint8_t status = 0;
   status = BSP_JOY_Init(JOY_MODE_GPIO);
   if (status != HAL_OK) {
@@ -127,7 +129,7 @@ int main(void)
     JoyState = BSP_JOY_GetState();
     switch (JoyState) {
       case JOY_UP:
-          if (cur_row > 0) {
+          if (cur_row >= 0) {
               cur_row--;
           }
           break;
@@ -137,7 +139,7 @@ int main(void)
           }
           break;     
       case JOY_LEFT:
-          if (cur_col > 0) {
+          if (cur_col >= 0) {
               cur_col--;
           }
           break;
@@ -150,11 +152,14 @@ int main(void)
           break;
     }
     if (JoyState != JOY_NONE) {
-        render_table_to_lcd(table, 0, 0, cur_row, cur_col);
+        update_viewport(cur_row, cur_col, &start_row, &start_col, table);
+        render_table_to_lcd(table, start_row, start_col, cur_row, cur_col);
     }
-    HAL_Delay(200);
-    /* USER CODE BEGIN 3 */
+    HAL_Delay(100);
   }
+
+  /* USER CODE BEGIN 3 */
+  free_table(table);
   /* USER CODE END 3 */
 }
 

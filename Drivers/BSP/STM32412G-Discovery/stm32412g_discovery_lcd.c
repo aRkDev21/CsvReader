@@ -371,6 +371,12 @@ void BSP_LCD_DisplayStringAt(uint16_t Xpos, uint16_t Ypos, uint8_t *Text, Line_M
     BSP_LCD_DisplayChar(refcolumn, Ypos, *Text);
     /* Decrement the column position by 16 */
     refcolumn += DrawProp.pFont->Width;
+    //
+    if (refcolumn > BSP_LCD_GetXSize())
+    {
+      break;
+    }
+    //
     /* Point on the next character */
     Text++;
     i++;
