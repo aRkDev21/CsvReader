@@ -19,7 +19,11 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "csv_render.h"
+#include "stm32412g_discovery.h"
 #include "stm32412g_discovery_lcd.h"
+#include "stm32f4xx_hal.h"
+#include "stm32f4xx_hal_gpio.h"
+#include <stdint.h>
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -49,7 +53,8 @@ UART_HandleTypeDef huart2;
 SRAM_HandleTypeDef hsram1;
 
 /* USER CODE BEGIN PV */
-static JOYState_TypeDef JoyState = JOY_NONE;
+volatile JOYState_TypeDef JoyState = JOY_NONE;
+volatile uint8_t joy_flag = 0;
 // static TS_StateTypeDef TS_State = {0};
 
 /* USER CODE END PV */
@@ -89,7 +94,6 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -128,7 +132,7 @@ int main(void)
   highlight_cell(table, new_row, new_col, start_row, start_col);
 
   uint8_t status = 0;
-  status = BSP_JOY_Init(JOY_MODE_GPIO);
+  status = BSP_JOY_Init(JOY_MODE_EXTI);
   if (status != HAL_OK) {
       display_error("Failed to initialize joystick");
   }
@@ -150,54 +154,52 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    prev_row = new_row;
-    prev_col = new_col;
+    if (joy_flag) {
+      joy_flag = 0;
+      prev_row = new_row;
+      prev_col = new_col;
 
-    JoyState = BSP_JOY_GetState();
-    switch (JoyState) {
-      case JOY_UP:
-          if (new_row >= 0) {
-            if (new_row == 0 && new_col == -1) break;
-            new_row--;
+      switch (JoyState) {
+        case JOY_UP:
+            if (new_row >= 0) {
+              if (new_row == 0 && new_col == -1) break;
+              new_row--;
+            }
+            break;
+        case JOY_DOWN:
+            if (new_row < table->row_count - 1) {
+                new_row++;
+            }
+            break;     
+        case JOY_LEFT:
+            if (new_col >= 0) {
+              if (new_col == 0 && new_row == -1) break;
+                new_col--;
+            }
+            break;
+        case JOY_RIGHT:
+            if (new_col < table->col_count - 1) {
+                new_col++;
+            }
+            break;
+        default:
+            break;
+      }
+      if (JoyState != JOY_NONE) {
+          update_viewport(new_row, new_col, &start_row, &start_col, table, &viewport_changed);
+
+          if (viewport_changed) {
+              render_table_to_lcd(table, start_row, start_col);
           }
-          break;
-      case JOY_DOWN:
-          if (new_row < table->row_count - 1) {
-              new_row++;
+
+          else {
+            unhighlight_cell(table, prev_row, prev_col, start_row, start_col);
           }
-          break;     
-      case JOY_LEFT:
-          if (new_col >= 0) {
-            if (new_col == 0 && new_row == -1) break;
-              new_col--;
-          }
-          break;
-      case JOY_RIGHT:
-          if (new_col < table->col_count - 1) {
-              new_col++;
-          }
-          break;
-      default:
-          break;
-    }
-    if (JoyState != JOY_NONE) {
-        update_viewport(new_row, new_col, &start_row, &start_col, table, &viewport_changed);
 
-        if (viewport_changed) {
-            render_table_to_lcd(table, start_row, start_col);
-        }
-
-        else {
-          unhighlight_cell(table, prev_row, prev_col, start_row, start_col);
-        }
-
-        highlight_cell(table, new_row, new_col, start_row, start_col);
-        
-    }
-
-
-
-    HAL_Delay(200);
+          highlight_cell(table, new_row, new_col, start_row, start_col);
+          
+      }
+  }
   }
   /* USER CODE END WHILE */
     
@@ -372,13 +374,18 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pins : JOY_RIGHT_Pin JOY_LEFT_Pin */
   GPIO_InitStruct.Pin = JOY_RIGHT_Pin|JOY_LEFT_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOF, &GPIO_InitStruct);
 
   /*Configure GPIO pins : JOY_UP_Pin JOY_DOWN_Pin LCD_TE_Pin */
-  GPIO_InitStruct.Pin = JOY_UP_Pin|JOY_DOWN_Pin|LCD_TE_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pin = JOY_UP_Pin|JOY_DOWN_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOG, &GPIO_InitStruct);
+
+  GPIO_InitStruct.Pin = LCD_TE_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;     
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOG, &GPIO_InitStruct);
 
@@ -404,7 +411,23 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(I2C2_SDA_GPIO_Port, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
+  HAL_NVIC_SetPriority(EXTI0_IRQn, 2, 0);     
+  HAL_NVIC_EnableIRQ(EXTI0_IRQn);
 
+  HAL_NVIC_SetPriority(EXTI1_IRQn, 2, 0);     
+  HAL_NVIC_EnableIRQ(EXTI1_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI2_IRQn, 2, 0);      
+  HAL_NVIC_EnableIRQ(EXTI2_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI3_IRQn, 2, 0);    
+  HAL_NVIC_EnableIRQ(EXTI3_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 2, 0);  
+  HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 2, 0);
+  HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
   /* USER CODE END MX_GPIO_Init_2 */
 }
 
@@ -463,7 +486,50 @@ static void MX_FSMC_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
+  static uint32_t last_interrupt_time = 0;
+  uint32_t current_time = HAL_GetTick();
+  if ( (current_time - last_interrupt_time) < 150) {
+    return;
+  }
 
+  if (GPIO_Pin == JOY_UP_Pin || GPIO_Pin == JOY_DOWN_Pin ||
+        GPIO_Pin == JOY_LEFT_Pin || GPIO_Pin == JOY_RIGHT_Pin) {
+        JoyState = BSP_JOY_GetState();
+        joy_flag = 1;
+        last_interrupt_time = current_time;
+    }
+}
+
+void EXTI0_IRQHandler(void)
+{
+    HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_0);
+}
+
+void EXTI1_IRQHandler(void)
+{
+    HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_1);
+}
+
+void EXTI2_IRQHandler(void)
+{
+    HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_2);
+}
+
+void EXTI3_IRQHandler(void)
+{
+    HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_3);
+}
+
+void EXTI9_5_IRQHandler(void)
+{
+    HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_5);
+}
+void EXTI15_10_IRQHandler(void)
+{
+    HAL_GPIO_EXTI_IRQHandler(JOY_LEFT_Pin);
+    HAL_GPIO_EXTI_IRQHandler(JOY_RIGHT_Pin);
+}
 /* USER CODE END 4 */
 
 /**
