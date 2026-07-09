@@ -60,10 +60,32 @@ void trim_newline(char* str){
 int len_header(Table* table, int i, int j) {
     int total_length = 0;
     for (int k = i; k < j; k++) {
-        total_length += strlen(table->col_names[k]) + 1;
+        total_length += strlen(table->col_names[k]) + 2; // +2 for ", "
     }
     return total_length;
 }
+
+int len_row(Table* table, int row, int i, int j) {
+    if (row == -1) return len_header(table, i, j);
+    int total_length = 0;
+    for (int k = i; k < j; k++) {
+        Cell* cell = &table->grid[row * table->col_count + k];
+        if (k != j-1) {
+            total_length += 2; // for ", "
+        }
+        if (cell->state == CSV_ERROR) {
+            total_length += strlen("#ERROR");
+        } else if (cell->state == EMPTY) {
+            total_length += strlen("#EMPTY");
+        } else {
+            char buffer[MAX_LEN_FIELD + 1];
+            sprintf(buffer, "%d", cell->value);
+            total_length += strlen(buffer);
+        }
+    }
+    return total_length;
+}
+
 
 int parse_header(char* line, Table* table) {
 	// 1 - success, 0 - error

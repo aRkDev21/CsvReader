@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "csv_render.h"
 #include "stm32412g_discovery_lcd.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -49,7 +50,7 @@ SRAM_HandleTypeDef hsram1;
 
 /* USER CODE BEGIN PV */
 static JOYState_TypeDef JoyState = JOY_NONE;
-static TS_StateTypeDef TS_State = {0};
+// static TS_StateTypeDef TS_State = {0};
 
 /* USER CODE END PV */
 
@@ -111,11 +112,20 @@ int main(void)
   }
   evaluate_all(table);
 
-  int cur_row = 0;
-  int cur_col = 0;
+  // selected cell coordinates
+  int new_row = 0;
+  int new_col = 0;
+
+  // previous cell coordinates
+  int prev_row = 0;
+  int prev_col = 0;
+
   int start_row = 0;
   int start_col = 0;
-  render_table_to_lcd(table, start_row, start_col, cur_row, cur_col);
+  bool viewport_changed = false;
+
+  render_table_to_lcd(table, start_row, start_col);
+  highlight_cell(table, new_row, new_col, start_row, start_col);
 
   uint8_t status = 0;
   status = BSP_JOY_Init(JOY_MODE_GPIO);
@@ -124,13 +134,13 @@ int main(void)
   }
 
   // touchscreen initialization
-  uint16_t tx_x, ts_y;
-  s_status = TS_OK;
-  ts_status = BSP_TS_Init(BSP_LCD_GetXSize(), BSP_LCD_GetYSize());
+  // uint16_t tx_x, ts_y;
+  // uint32_t ts_status = TS_OK;
+  // ts_status = BSP_TS_Init(BSP_LCD_GetXSize(), BSP_LCD_GetYSize());
 
-  if (ts_status != TS_OK) {
-      display_error("Failed to initialize touchscreen");
-  }
+  // if (ts_status != TS_OK) {
+  //     display_error("Failed to initialize touchscreen");
+  // }
 
 
 
@@ -140,39 +150,54 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+    prev_row = new_row;
+    prev_col = new_col;
+
     JoyState = BSP_JOY_GetState();
     switch (JoyState) {
       case JOY_UP:
-          if (cur_row >= 0) {
-              cur_row--;
+          if (new_row >= 0) {
+            if (new_row == 0 && new_col == -1) break;
+            new_row--;
           }
           break;
       case JOY_DOWN:
-          if (cur_row < table->row_count - 1) {
-              cur_row++;
+          if (new_row < table->row_count - 1) {
+              new_row++;
           }
           break;     
       case JOY_LEFT:
-          if (cur_col >= 0) {
-              cur_col--;
+          if (new_col >= 0) {
+            if (new_col == 0 && new_row == -1) break;
+              new_col--;
           }
           break;
       case JOY_RIGHT:
-          if (cur_col < table->col_count - 1) {
-              cur_col++;
+          if (new_col < table->col_count - 1) {
+              new_col++;
           }
           break;
       default:
           break;
     }
     if (JoyState != JOY_NONE) {
-        update_viewport(cur_row, cur_col, &start_row, &start_col, table);
-        render_table_to_lcd(table, start_row, start_col, cur_row, cur_col);
+        update_viewport(new_row, new_col, &start_row, &start_col, table, &viewport_changed);
+
+        if (viewport_changed) {
+            render_table_to_lcd(table, start_row, start_col);
+        }
+
+        else {
+          unhighlight_cell(table, prev_row, prev_col, start_row, start_col);
+        }
+
+        highlight_cell(table, new_row, new_col, start_row, start_col);
+        
     }
 
 
 
-    HAL_Delay(100);
+    HAL_Delay(200);
   }
   /* USER CODE END WHILE */
     

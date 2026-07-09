@@ -58,6 +58,8 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Drivers/BSP/STM32412G-Discovery/stm32412g_discovery_lcd.c
     Drivers/BSP/Components/st7789h2/st7789h2.c
     Drivers/BSP/Components/ls016b8uy/ls016b8uy.c
+    Drivers/BSP/Components/ft3x67/ft3x67.c
+    Drivers/BSP/Components/ft6x06/ft6x06.c
     Drivers/BSP/STM32412G-Discovery/stm32412g_discovery_ts.c
 )
 

@@ -31,6 +31,7 @@ int digit_count(int);
 Table* read_csv(const char*);
 void free_table(Table*);
 int len_header(Table*, int, int);
+int len_row(Table* table, int row, int i, int j);
 
 void evaluate_all(Table*);
 #endif
