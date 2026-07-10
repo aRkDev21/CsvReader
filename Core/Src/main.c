@@ -480,7 +480,7 @@ static void MX_FSMC_Init(void)
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
   static uint32_t last_interrupt_time = 0;
   uint32_t current_time = HAL_GetTick();
-  if ( (current_time - last_interrupt_time) < 150) {
+  if ( (current_time - last_interrupt_time) < 200) {
     return;
   }
 
