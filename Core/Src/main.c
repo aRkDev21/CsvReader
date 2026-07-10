@@ -417,15 +417,6 @@ static void MX_GPIO_Init(void)
   HAL_NVIC_SetPriority(EXTI1_IRQn, 2, 0);     
   HAL_NVIC_EnableIRQ(EXTI1_IRQn);
 
-  HAL_NVIC_SetPriority(EXTI2_IRQn, 2, 0);      
-  HAL_NVIC_EnableIRQ(EXTI2_IRQn);
-
-  HAL_NVIC_SetPriority(EXTI3_IRQn, 2, 0);    
-  HAL_NVIC_EnableIRQ(EXTI3_IRQn);
-
-  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 2, 0);  
-  HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
-
   HAL_NVIC_SetPriority(EXTI15_10_IRQn, 2, 0);
   HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
   /* USER CODE END MX_GPIO_Init_2 */
@@ -511,20 +502,6 @@ void EXTI1_IRQHandler(void)
     HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_1);
 }
 
-void EXTI2_IRQHandler(void)
-{
-    HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_2);
-}
-
-void EXTI3_IRQHandler(void)
-{
-    HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_3);
-}
-
-void EXTI9_5_IRQHandler(void)
-{
-    HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_5);
-}
 void EXTI15_10_IRQHandler(void)
 {
     HAL_GPIO_EXTI_IRQHandler(JOY_LEFT_Pin);

@@ -6,6 +6,7 @@
  */
 
 #include "csv_render.h"
+#include "stm32412g_discovery_lcd.h"
 
 #define FONT_SIZE 12
 #define OFFSET_LINE 24
@@ -77,12 +78,11 @@ void draw_cell(Cell* cell, int *curX, int *curY) {
 
 // print to lcd
 void render_table_to_lcd(Table* table, int start_row, int start_col) {
-    if (start_row < 0) start_row = 0;
-    if (start_col < 0) start_col = 0;
     BSP_LCD_Clear(LCD_COLOR_WHITE);
 	
     // print headers
 	int curX = FONT_SIZE;
+    BSP_LCD_SetBackColor(LCD_COLOR_GRAY);
     for (int i = start_col; i < table->col_count; i++) {
         BSP_LCD_DisplayStringAt(curX, 0, (uint8_t*)table->col_names[i], 0);
         curX += strlen(table->col_names[i]) * LCD_DEFAULT_FONT.Width + FONT_SIZE;
@@ -91,6 +91,7 @@ void render_table_to_lcd(Table* table, int start_row, int start_col) {
             break;
         }
     }
+    BSP_LCD_SetBackColor(LCD_COLOR_WHITE);
 
     // print body
     curX = 0;
@@ -99,6 +100,7 @@ void render_table_to_lcd(Table* table, int start_row, int start_col) {
     for (int i = start_row; i < table->row_count; i++) {
         // print row id
         sprintf(lcd_buffer, "%d", table->row_ids[i]);
+        BSP_LCD_SetBackColor(LCD_COLOR_GRAY);
         BSP_LCD_DisplayStringAt(curX, curY, (uint8_t*) lcd_buffer, 0);
         
         curX += digit_count(table->row_ids[i]) * LCD_DEFAULT_FONT.Width;
@@ -106,8 +108,7 @@ void render_table_to_lcd(Table* table, int start_row, int start_col) {
             if (curX >= SCREEN_WIDTH) {
                 break;
             }
-            BSP_LCD_DisplayStringAt(curX, curY, (uint8_t*)", ", 0);
-            curX += 2 * LCD_DEFAULT_FONT.Width;
+            curX += LCD_DEFAULT_FONT.Width;
             draw_cell(&table->grid[i * table->col_count + j], &curX, &curY);
         }
         curY += OFFSET_LINE;
@@ -145,7 +146,7 @@ void find_cell_pos(Table* t, int row, int col, int* x, int* y, int start_row, in
     *x = digit_count(t->row_ids[row]) * LCD_DEFAULT_FONT.Width; // row id width
     int j = start_col;
     while (j != col) {
-        *x += 2 * LCD_DEFAULT_FONT.Width; // comma and space
+        *x += LCD_DEFAULT_FONT.Width; // space
         Cell* cell = &t->grid[row * t->col_count + j];
         if (cell->state == CSV_ERROR || cell->state == EMPTY) {
             *x += strlen("#ERROR") * LCD_DEFAULT_FONT.Width; // #ERROR(5) or #EMPTY(5)
@@ -155,7 +156,7 @@ void find_cell_pos(Table* t, int row, int col, int* x, int* y, int start_row, in
         }
         j++;
     }
-    *x += 2 * LCD_DEFAULT_FONT.Width; // comma and space
+    *x += LCD_DEFAULT_FONT.Width; // comma and space
     *y = (row - start_row) * OFFSET_LINE + OFFSET_LINE;
 }
 
@@ -169,7 +170,7 @@ void unhighlight_cell(Table* table, int cur_row, int cur_col, int start_row, int
     int curX = 0, curY = 0;
     find_cell_pos(table, cur_row, cur_col, &curX, &curY, start_row, start_col);
 
-    BSP_LCD_SetBackColor(LCD_COLOR_WHITE);
+    BSP_LCD_SetBackColor(LCD_COLOR_GRAY);
     
     if (cur_row == -1) {
         BSP_LCD_DisplayStringAt(curX, 0, (uint8_t*)table->col_names[cur_col], 0);
