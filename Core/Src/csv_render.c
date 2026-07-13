@@ -32,7 +32,7 @@ int get_size_cell(Cell* cell) {
         size = digit_count(cell->value);
     }
     else {
-        size = 5; // #ERROR or #EMPTY
+        size = 6; // #ERROR or #EMPTY
     }
     return size;
 }
@@ -53,7 +53,7 @@ int get_max_col_len(Table* table, int start_row, int col) {
 
 uint16_t  get_cell_color(int row, int col) {
     if ( (row + col) % 2 != 0) {
-        return LCD_COLOR_BLUE;
+        return LCD_COLOR_LIGHTGRAY;
     }
     return LCD_COLOR_WHITE;
 }
@@ -232,8 +232,8 @@ void render_table_to_lcd(Table* table, int start_row, int start_col) {
 
 
 void display_error(const char* error_text) {
+    BSP_LCD_Clear(LCD_COLOR_WHITE);
 	BSP_LCD_SetTextColor(LCD_COLOR_RED);
-	BSP_LCD_Clear(LCD_COLOR_WHITE);
 	BSP_LCD_DisplayStringAt(0, 
                             SCREEN_HEIGHT/2 - LCD_DEFAULT_FONT.Height/2, 
                             (uint8_t*) error_text, 
@@ -251,5 +251,5 @@ int unhighlight_cell(Table* table, int cur_row, int cur_col, int start_row, int 
 int highlight_cell(Table* table, int new_row, int new_col, int start_row, int start_col) {
     // highlight the new cell
     int curX = 0, curY = 0;
-    return draw_cell(table, new_row, new_col, &curX, &curY, start_row, start_col, LCD_COLOR_GREEN);
+    return draw_cell(table, new_row, new_col, &curX, &curY, start_row, start_col, LCD_COLOR_DARKGRAY);
 }
