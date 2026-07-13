@@ -21,7 +21,7 @@ void display_error(const char* error_text);
 void find_cell_pos(Table* t, int row, int col, int* x, int* y, int start_row, int start_col);
 void render_table_to_lcd(Table*, int, int);
 void update_viewport(int selected_row, int selected_col, int* start_row, int* start_col, Table* table, bool* viewport_changed);
-void highlight_cell(Table* table, int new_row, int new_col, int start_row, int start_col);
-void unhighlight_cell(Table* table, int prev_row, int prev_col, int start_row, int start_col);
+int highlight_cell(Table* table, int new_row, int new_col, int start_row, int start_col);
+int unhighlight_cell(Table* table, int prev_row, int prev_col, int start_row, int start_col);
 
 #endif /* CSV_RENDER_H */

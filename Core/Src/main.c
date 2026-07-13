@@ -196,7 +196,12 @@ int main(void)
             unhighlight_cell(table, prev_row, prev_col, start_row, start_col);
           }
 
-          highlight_cell(table, new_row, new_col, start_row, start_col);
+          if (!highlight_cell(table, new_row, new_col, start_row, start_col)) {
+            new_row = prev_row;
+            new_col = prev_col;
+            highlight_cell(table, new_row, new_col, start_row, start_col);
+
+          }
           
       }
   }

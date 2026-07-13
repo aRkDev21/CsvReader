@@ -44,11 +44,18 @@ int get_max_col_len(Table* table, int start_row, int col) {
         mx = strlen(table->col_names[col]);
     }
     for (int i = start_row; i < table->row_count; i++) {
-        cur = (col == -1) ? digit_count(table->row_ids[i]) : get_size_cell(&table->grid[i*table->col_count + col]);
+        cur = (col <= -1) ? digit_count(table->row_ids[i]) : get_size_cell(&table->grid[i*table->col_count + col]);
         if (mx < cur) mx = cur;
     }
 
     return mx;
+}
+
+uint16_t  get_cell_color(int row, int col) {
+    if ( (row + col) % 2 != 0) {
+        return LCD_COLOR_BLUE;
+    }
+    return LCD_COLOR_WHITE;
 }
 
 void update_viewport(int selected_row, int selected_col, int* start_row, int* start_col, Table* table, bool* viewport_changed) {
@@ -68,12 +75,11 @@ void update_viewport(int selected_row, int selected_col, int* start_row, int* st
         *viewport_changed = true;
     }
     else {
-    // if we cant display the selected row
+    // if we cant display the selected column
         while (len_row(table, selected_row, *start_col, selected_col) * FONT_SIZE >= SCREEN_WIDTH) {
             (*start_col)++;
             *viewport_changed = true;
-        }   
-        
+        }  
     }
 
     if (*start_row == -1) *start_row = 0;
@@ -142,25 +148,48 @@ void find_cell_pos(Table* t, int row, int col, int* x, int* y, int start_row, in
     }
 }
 
-int draw_cell(Table* table, int row, int col, int *curX, int *curY, int start_row, int start_col) {
-    find_cell_pos(table, row, col, curX, curY, start_row, start_col);
+int draw_cell(Table* table, int row, int col, int *curX, int *curY, int start_row, int start_col, uint16_t color) {
+    find_cell_pos(table, row, col , curX, curY, start_row, start_col);
     if (*curX >= SCREEN_WIDTH) return 0;
-    
+    int cell_w, cell_h;
+    cell_h = OFFSET_LINE;
+    cell_w = get_max_col_len(table, start_row, col) * LCD_DEFAULT_FONT.Width + FONT_SIZE;
+    if (*curX + cell_w >= SCREEN_WIDTH) cell_w = SCREEN_WIDTH - *curX;
+    BSP_LCD_SetTextColor(color);
+    BSP_LCD_SetBackColor(color);
+    if (row == -1 && col == 0 && 0) {
+        // cell_w = get_max_col_len(table, start_row, -1) * LCD_DEFAULT_FONT.Width;
+        // BSP_LCD_FillRect(0, *curY, cell_w, cell_h);
+    }
+    else {
+        BSP_LCD_FillRect(*curX, *curY, cell_w, cell_h);
+    }
+
+    BSP_LCD_SetTextColor(LCD_COLOR_DARKBLUE);
+
+    int textX = *curX;
+    int textY = *curY + (FONT_SIZE)/2;
     if (row == -1) {
-        BSP_LCD_DisplayStringAt(*curX, *curY, (uint8_t*)table->col_names[col], 0);
+        textX += (cell_w - (strlen(table->col_names[col]) * LCD_DEFAULT_FONT.Width)) / 2;
+        if (textX <= *curX) textX = *curX;
+        BSP_LCD_DisplayStringAt(textX, textY, (uint8_t*)table->col_names[col], 0);
         //*curX += strlen(table->col_names[col]) * LCD_DEFAULT_FONT.Width + FONT_SIZE;
     }
 
     else if (col == -1) {
         char lcd_buffer[MAX_LEN_FIELD + 1];
         sprintf(lcd_buffer, "%d", table->row_ids[row]);
-        BSP_LCD_DisplayStringAt(*curX, *curY, (uint8_t*) lcd_buffer, 0);
+        textX += (cell_w - digit_count(table->row_ids[row]) * LCD_DEFAULT_FONT.Width ) / 2;
+        if (textX <= *curX) textX = *curX;
+        BSP_LCD_DisplayStringAt(textX, textY, (uint8_t*) lcd_buffer, 0);
         //*curX += digit_count(table->row_ids[row]) * LCD_DEFAULT_FONT.Width;
     } 
 
     else {
         Cell* cell = &table->grid[row * table->col_count + col];
-        draw_cell_value(cell, curX, curY);
+        textX += (cell_w - (get_size_cell(cell)*LCD_DEFAULT_FONT.Width)) / 2;
+        if (textX <= *curX) textX = *curX;
+        draw_cell_value(cell, &textX, &textY);
     }
     return 1;
 }
@@ -171,9 +200,10 @@ void render_table_to_lcd(Table* table, int start_row, int start_col) {
     // print headers
 	int curX = 0;
     int curY = 0;
-    BSP_LCD_SetBackColor(LCD_COLOR_DARKCYAN);
+    uint16_t bg_color;
     for (int i = start_col; i < table->col_count; i++) {
-        if (!draw_cell(table, -1, i, &curX, &curY, start_row, start_col)) {
+        bg_color = get_cell_color(-1, i);
+        if (!draw_cell(table, -1, i, &curX, &curY, start_row, start_col, bg_color)) {
             break;
         }
     }
@@ -182,12 +212,14 @@ void render_table_to_lcd(Table* table, int start_row, int start_col) {
     curX = 0;
     curY = OFFSET_LINE;
     for (int i = start_row; i < table->row_count; i++) {
+        bg_color = get_cell_color(i, -1);
         // print row id
         if (start_col == 0){
-            draw_cell(table, i, -1, &curX, &curY, start_row, start_col);
+            draw_cell(table, i, -1, &curX, &curY, start_row, start_col, bg_color);
         }
         for (int j = start_col; j < table->col_count; j++) {
-            if (!draw_cell(table, i, j, &curX, &curY, start_row, start_col)) {
+            bg_color = get_cell_color(i, j);
+            if (!draw_cell(table, i, j, &curX, &curY, start_row, start_col, bg_color)) {
                 break;
             }
             //curX += LCD_DEFAULT_FONT.Width;
@@ -196,7 +228,6 @@ void render_table_to_lcd(Table* table, int start_row, int start_col) {
         curX = 0;
     }
 
-    BSP_LCD_SetBackColor(LCD_COLOR_WHITE);
 }
 
 
@@ -211,18 +242,14 @@ void display_error(const char* error_text) {
 }
 
 
-void unhighlight_cell(Table* table, int cur_row, int cur_col, int start_row, int start_col) {
+int unhighlight_cell(Table* table, int cur_row, int cur_col, int start_row, int start_col) {
     // remove highlight from the previous cell
     int curX = 0, curY = 0;
-    BSP_LCD_SetBackColor(LCD_COLOR_DARKCYAN);
-    draw_cell(table, cur_row, cur_col, &curX, &curY, start_row, start_col);
-    BSP_LCD_SetBackColor(LCD_COLOR_WHITE);
+    return draw_cell(table, cur_row, cur_col, &curX, &curY, start_row, start_col, get_cell_color(cur_row, cur_col));
 }
 
-void highlight_cell(Table* table, int new_row, int new_col, int start_row, int start_col) {
+int highlight_cell(Table* table, int new_row, int new_col, int start_row, int start_col) {
     // highlight the new cell
     int curX = 0, curY = 0;
-    BSP_LCD_SetBackColor(LCD_COLOR_GREEN);
-    draw_cell(table, new_row, new_col, &curX, &curY, start_row, start_col);
-    BSP_LCD_SetBackColor(LCD_COLOR_WHITE);
+    return draw_cell(table, new_row, new_col, &curX, &curY, start_row, start_col, LCD_COLOR_GREEN);
 }
