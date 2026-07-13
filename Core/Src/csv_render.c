@@ -26,6 +26,31 @@ void init_lcd() {
 	BSP_LCD_SetTextColor(LCD_COLOR_DARKBLUE);
 }
 
+int get_size_cell(Cell* cell) {
+    int size = 0;
+    if (cell->state == DONE) {
+        size = digit_count(cell->value);
+    }
+    else {
+        size = 5; // #ERROR or #EMPTY
+    }
+    return size;
+}
+
+int get_max_col_len(Table* table, int start_row, int col) {
+    int mx = 0;
+    int cur = 0;
+    if (start_row == 0) {
+        mx = strlen(table->col_names[col]);
+    }
+    for (int i = start_row; i < table->row_count; i++) {
+        cur = (col == -1) ? digit_count(table->row_ids[i]) : get_size_cell(&table->grid[i*table->col_count + col]);
+        if (mx < cur) mx = cur;
+    }
+
+    return mx;
+}
+
 void update_viewport(int selected_row, int selected_col, int* start_row, int* start_col, Table* table, bool* viewport_changed) {
     *viewport_changed = false;
 
@@ -60,92 +85,95 @@ void draw_cell_value(Cell* cell, int *curX, int *curY) {
     if (cell->state == CSV_ERROR) {
         BSP_LCD_SetTextColor(LCD_COLOR_RED);
         BSP_LCD_DisplayStringAt(*curX, *curY, (uint8_t*)"#ERROR", 0);
-        *curX += strlen("#ERROR") * LCD_DEFAULT_FONT.Width;
+        //*curX += strlen("#ERROR") * LCD_DEFAULT_FONT.Width;
     }
 
     else if (cell->state == EMPTY) {
         BSP_LCD_SetTextColor(LCD_COLOR_ORANGE);
         BSP_LCD_DisplayStringAt(*curX, *curY, (uint8_t*)"#EMPTY", 0);
-        *curX += strlen("#EMPTY") * LCD_DEFAULT_FONT.Width;
+        //*curX += strlen("#EMPTY") * LCD_DEFAULT_FONT.Width;
     }
     else {
         BSP_LCD_SetTextColor(LCD_COLOR_DARKBLUE);
         char lcd_buffer[MAX_LEN_FIELD + 1];
         sprintf(lcd_buffer, "%d", cell->value);
         BSP_LCD_DisplayStringAt(*curX, *curY, (uint8_t*)lcd_buffer, 0);
-        *curX += digit_count(cell->value) * LCD_DEFAULT_FONT.Width;
+        //*curX += digit_count(cell->value) * LCD_DEFAULT_FONT.Width;
     }
     BSP_LCD_SetTextColor(LCD_COLOR_DARKBLUE);
 }
 
 void find_cell_pos(Table* t, int row, int col, int* x, int* y, int start_row, int start_col) {
+    *x = 0;
     if (row == -1) {
-        *x = FONT_SIZE;
-        for (int j = start_col; j < col; j++) {
-            *x += strlen(t->col_names[j]) * LCD_DEFAULT_FONT.Width + FONT_SIZE;
-            *y = 0;
-        }
-        return;
+        *y = 0;
     } 
+    else {
+        *y = (row - start_row) * OFFSET_LINE + OFFSET_LINE;
+    }
 
     if (col == -1) {
         *x = 0;
-        *y = (row - start_row) * OFFSET_LINE + OFFSET_LINE;
         return;
     }
 
     if (start_col == 0)
-        *x = digit_count(t->row_ids[row]) * LCD_DEFAULT_FONT.Width; // row id width
-    else 
-        *x = -LCD_DEFAULT_FONT.Width; // lol it works
+        *x += get_max_col_len(t, start_row, -1) * LCD_DEFAULT_FONT.Width + FONT_SIZE;// row id width
+    // else 
+    //     *x = -LCD_DEFAULT_FONT.Width; // lol it works
 
-    int j = start_col;
-    while (j != col) {
-        *x += LCD_DEFAULT_FONT.Width; // space
-        Cell* cell = &t->grid[row * t->col_count + j];
-        if (cell->state == CSV_ERROR || cell->state == EMPTY) {
-            *x += strlen("#ERROR") * LCD_DEFAULT_FONT.Width; // #ERROR(5) or #EMPTY(5)
-        }
-        else {
-            *x += digit_count(cell->value) * LCD_DEFAULT_FONT.Width;
-        }
-        j++;
+    // int j = start_col;
+    // while (j != col) {
+    //     *x += LCD_DEFAULT_FONT.Width; // space
+    //     Cell* cell = &t->grid[row * t->col_count + j];
+    //     if (cell->state == CSV_ERROR || cell->state == EMPTY) {
+    //         *x += strlen("#ERROR") * LCD_DEFAULT_FONT.Width; // #ERROR(5) or #EMPTY(5)
+    //     }
+    //     else {
+    //         *x += digit_count(cell->value) * LCD_DEFAULT_FONT.Width;
+    //     }
+    //     j++;
+    // }
+    // *x += LCD_DEFAULT_FONT.Width; // space
+    // *y = (row - start_row) * OFFSET_LINE + OFFSET_LINE;
+
+    for (int j = start_col; j < col; j++) {
+        *x += get_max_col_len(t, start_row, j) * LCD_DEFAULT_FONT.Width + FONT_SIZE;
     }
-    *x += LCD_DEFAULT_FONT.Width; // space
-    *y = (row - start_row) * OFFSET_LINE + OFFSET_LINE;
 }
 
-void draw_cell(Table* table, int row, int col, int *curX, int *curY, int start_row, int start_col) {
+int draw_cell(Table* table, int row, int col, int *curX, int *curY, int start_row, int start_col) {
     find_cell_pos(table, row, col, curX, curY, start_row, start_col);
+    if (*curX >= SCREEN_WIDTH) return 0;
     
     if (row == -1) {
         BSP_LCD_DisplayStringAt(*curX, *curY, (uint8_t*)table->col_names[col], 0);
-        *curX += strlen(table->col_names[col]) * LCD_DEFAULT_FONT.Width + FONT_SIZE;
+        //*curX += strlen(table->col_names[col]) * LCD_DEFAULT_FONT.Width + FONT_SIZE;
     }
 
     else if (col == -1) {
         char lcd_buffer[MAX_LEN_FIELD + 1];
         sprintf(lcd_buffer, "%d", table->row_ids[row]);
         BSP_LCD_DisplayStringAt(*curX, *curY, (uint8_t*) lcd_buffer, 0);
-        *curX += digit_count(table->row_ids[row]) * LCD_DEFAULT_FONT.Width;
+        //*curX += digit_count(table->row_ids[row]) * LCD_DEFAULT_FONT.Width;
     } 
 
     else {
         Cell* cell = &table->grid[row * table->col_count + col];
         draw_cell_value(cell, curX, curY);
     }
+    return 1;
 }
 
 // print to lcd
 void render_table_to_lcd(Table* table, int start_row, int start_col) {
     BSP_LCD_Clear(LCD_COLOR_WHITE);
     // print headers
-	int curX = FONT_SIZE;
+	int curX = 0;
     int curY = 0;
     BSP_LCD_SetBackColor(LCD_COLOR_DARKCYAN);
     for (int i = start_col; i < table->col_count; i++) {
-        draw_cell(table, -1, i, &curX, &curY, start_row, start_col);
-        if (curX >= SCREEN_WIDTH) {
+        if (!draw_cell(table, -1, i, &curX, &curY, start_row, start_col)) {
             break;
         }
     }
@@ -159,11 +187,10 @@ void render_table_to_lcd(Table* table, int start_row, int start_col) {
             draw_cell(table, i, -1, &curX, &curY, start_row, start_col);
         }
         for (int j = start_col; j < table->col_count; j++) {
-            if (curX >= SCREEN_WIDTH) {
+            if (!draw_cell(table, i, j, &curX, &curY, start_row, start_col)) {
                 break;
             }
-            draw_cell(table, i, j, &curX, &curY, start_row, start_col);
-            curX += LCD_DEFAULT_FONT.Width;
+            //curX += LCD_DEFAULT_FONT.Width;
         }
         curY += OFFSET_LINE;
         curX = 0;
