@@ -18,12 +18,11 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "csv_render.h"
 #include "stm32412g_discovery.h"
-#include "stm32412g_discovery_lcd.h"
-#include "stm32f4xx_hal.h"
-#include "stm32f4xx_hal_gpio.h"
-#include <stdint.h>
+#include "stm32f412zx.h"
+#include "stm32f4xx_hal_cortex.h"
+#include "stm32f4xx_hal_rcc_ex.h"
+#include "stm32f4xx_hal_tim.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -48,13 +47,16 @@
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c1;
 
+TIM_HandleTypeDef htim6;
+
 UART_HandleTypeDef huart2;
 
 SRAM_HandleTypeDef hsram1;
 
 /* USER CODE BEGIN PV */
-volatile JOYState_TypeDef JoyState = JOY_NONE;
+volatile JOYState_TypeDef StableJoyState = JOY_NONE;
 volatile uint8_t joy_flag = 0;
+volatile JOYState_TypeDef CandidateJoyState = JOY_NONE;
 // static TS_StateTypeDef TS_State = {0};
 
 /* USER CODE END PV */
@@ -65,6 +67,7 @@ static void MX_GPIO_Init(void);
 static void MX_FSMC_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_I2C1_Init(void);
+static void MX_TIM6_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -108,6 +111,7 @@ int main(void)
   MX_FSMC_Init();
   MX_USART2_UART_Init();
   MX_I2C1_Init();
+  MX_TIM6_Init();
   /* USER CODE BEGIN 2 */
   init_lcd();
   Table* table = read_csv(csv_data);
@@ -132,7 +136,7 @@ int main(void)
   highlight_cell(table, new_row, new_col, start_row, start_col);
 
   uint8_t status = 0;
-  status = BSP_JOY_Init(JOY_MODE_EXTI);
+  status = BSP_JOY_Init(JOY_MODE_GPIO);
   if (status != HAL_OK) {
       display_error("Failed to initialize joystick");
   }
@@ -159,7 +163,7 @@ int main(void)
       prev_row = new_row;
       prev_col = new_col;
 
-      switch (JoyState) {
+      switch (StableJoyState) {
         case JOY_UP:
             if (new_row >= 0) {
               if (new_row == 0 && new_col == -1) break;
@@ -185,7 +189,7 @@ int main(void)
         default:
             break;
       }
-      if (JoyState != JOY_NONE) {
+      if (StableJoyState != JOY_NONE) {
           update_viewport(new_row, new_col, &start_row, &start_col, table, &viewport_changed);
 
           if (viewport_changed) {
@@ -206,9 +210,9 @@ int main(void)
       }
   }
   }
-  /* USER CODE END WHILE */
-    
-  /* USER CODE BEGIN 3 */
+    /* USER CODE END WHILE */
+
+    /* USER CODE BEGIN 3 */
   free_table(table);
   /* USER CODE END 3 */
 }
@@ -290,6 +294,49 @@ static void MX_I2C1_Init(void)
   /* USER CODE BEGIN I2C1_Init 2 */
 
   /* USER CODE END I2C1_Init 2 */
+
+}
+
+/**
+  * @brief TIM6 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM6_Init(void)
+{
+
+  /* USER CODE BEGIN TIM6_Init 0 */
+
+  /* USER CODE END TIM6_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM6_Init 1 */
+
+  /* USER CODE END TIM6_Init 1 */
+  htim6.Instance = TIM6;
+  htim6.Init.Prescaler = 71;
+  htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim6.Init.Period = 999;
+  htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+  if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim6, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM6_Init 2 */
+  __HAL_RCC_TIM6_CLK_ENABLE(); // 
+  HAL_NVIC_SetPriority(TIM6_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(TIM6_IRQn);
+
+  HAL_TIM_Base_Init(&htim6);
+  HAL_TIM_Base_Start_IT(&htim6);
+  /* USER CODE END TIM6_Init 2 */
 
 }
 
@@ -379,18 +426,13 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pins : JOY_RIGHT_Pin JOY_LEFT_Pin */
   GPIO_InitStruct.Pin = JOY_RIGHT_Pin|JOY_LEFT_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOF, &GPIO_InitStruct);
 
   /*Configure GPIO pins : JOY_UP_Pin JOY_DOWN_Pin LCD_TE_Pin */
-  GPIO_InitStruct.Pin = JOY_UP_Pin|JOY_DOWN_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOG, &GPIO_InitStruct);
-
-  GPIO_InitStruct.Pin = LCD_TE_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;     
+  GPIO_InitStruct.Pin = JOY_UP_Pin|JOY_DOWN_Pin|LCD_TE_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOG, &GPIO_InitStruct);
 
@@ -416,14 +458,6 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(I2C2_SDA_GPIO_Port, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
-  HAL_NVIC_SetPriority(EXTI0_IRQn, 2, 0);     
-  HAL_NVIC_EnableIRQ(EXTI0_IRQn);
-
-  HAL_NVIC_SetPriority(EXTI1_IRQn, 2, 0);     
-  HAL_NVIC_EnableIRQ(EXTI1_IRQn);
-
-  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 2, 0);
-  HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
   /* USER CODE END MX_GPIO_Init_2 */
 }
 
@@ -482,35 +516,29 @@ static void MX_FSMC_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
-  static uint32_t last_interrupt_time = 0;
-  uint32_t current_time = HAL_GetTick();
-  if ( (current_time - last_interrupt_time) < 200) {
-    return;
-  }
-
-  if (GPIO_Pin == JOY_UP_Pin || GPIO_Pin == JOY_DOWN_Pin ||
-        GPIO_Pin == JOY_LEFT_Pin || GPIO_Pin == JOY_RIGHT_Pin) {
-        JoyState = BSP_JOY_GetState();
-        joy_flag = 1;
-        last_interrupt_time = current_time;
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
+  static int countMeasurements = 0;
+  JOYState_TypeDef current_state = BSP_JOY_GetState();
+  if (htim->Instance == TIM6) {
+    if (CandidateJoyState == current_state) {
+      countMeasurements++;
+      if (countMeasurements == 10) {
+        if (StableJoyState != CandidateJoyState) {
+          StableJoyState = CandidateJoyState;
+          CandidateJoyState = JOY_NONE;
+          if (StableJoyState != JOY_NONE)
+            joy_flag = 1;
+        }
+        else {
+          countMeasurements = 0;
+        }
+      }
     }
-}
-
-void EXTI0_IRQHandler(void)
-{
-    HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_0);
-}
-
-void EXTI1_IRQHandler(void)
-{
-    HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_1);
-}
-
-void EXTI15_10_IRQHandler(void)
-{
-    HAL_GPIO_EXTI_IRQHandler(JOY_LEFT_Pin);
-    HAL_GPIO_EXTI_IRQHandler(JOY_RIGHT_Pin);
+    else {
+      CandidateJoyState = current_state;
+      countMeasurements = 0;
+    };
+  }
 }
 /* USER CODE END 4 */
 
