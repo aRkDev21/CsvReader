@@ -424,7 +424,9 @@ void BSP_TS_Reset(void)
   HAL_Delay(10);
   HAL_GPIO_WritePin(TS_RST_GPIO_PORT, TS_RST_PIN, GPIO_PIN_SET);
 
-  while (HAL_GPIO_ReadPin(TS_RST_GPIO_PORT , TS_RST_PIN)!= GPIO_PIN_RESET);
+  // wtf how it i wont believe 
+  //while (HAL_GPIO_ReadPin(TS_RST_GPIO_PORT , TS_RST_PIN)!= GPIO_PIN_RESET);
+  while (HAL_GPIO_ReadPin(TS_RST_GPIO_PORT , TS_RST_PIN)!= GPIO_PIN_SET);
   while (HAL_GPIO_ReadPin(TS_INT_GPIO_PORT , TS_INT_PIN)!= GPIO_PIN_SET);
 }
 

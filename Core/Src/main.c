@@ -19,14 +19,15 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "stm32412g_discovery.h"
+#include "stm32412g_discovery_lcd.h"
 #include "stm32f412zx.h"
 #include "stm32f4xx_hal_cortex.h"
 #include "stm32f4xx_hal_rcc_ex.h"
 #include "stm32f4xx_hal_tim.h"
+#include "stm32412g_discovery_ts.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -57,7 +58,7 @@ SRAM_HandleTypeDef hsram1;
 volatile JOYState_TypeDef StableJoyState = JOY_NONE;
 volatile uint8_t joy_flag = 0;
 volatile JOYState_TypeDef CandidateJoyState = JOY_NONE;
-// static TS_StateTypeDef TS_State = {0};
+static TS_StateTypeDef TS_State = {0};
 
 /* USER CODE END PV */
 
@@ -141,14 +142,14 @@ int main(void)
       display_error("Failed to initialize joystick");
   }
 
-  // touchscreen initialization
-  // uint16_t tx_x, ts_y;
-  // uint32_t ts_status = TS_OK;
-  // ts_status = BSP_TS_Init(BSP_LCD_GetXSize(), BSP_LCD_GetYSize());
+  //touchscreen initialization
+  uint16_t ts_x, ts_y;
+  uint32_t ts_status = TS_OK;
+  ts_status = BSP_TS_Init(BSP_LCD_GetXSize(), BSP_LCD_GetYSize());
 
-  // if (ts_status != TS_OK) {
-  //     display_error("Failed to initialize touchscreen");
-  // }
+  if (ts_status != TS_OK) {
+      display_error("Failed to initialize touchscreen");
+  }
 
 
 
@@ -158,6 +159,13 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+    ts_status = BSP_TS_GetState(&TS_State);
+    if (TS_State.touchDetected) {
+      ts_x = TS_State.touchX[0];
+      ts_y = TS_State.touchY[0];
+      BSP_LCD_DrawPixel(ts_x, ts_y, LCD_COLOR_RED);
+
+    }
     if (joy_flag) {
       joy_flag = 0;
       prev_row = new_row;
