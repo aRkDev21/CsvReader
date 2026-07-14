@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "csv_render.h"
 #include "stm32412g_discovery.h"
 #include "stm32412g_discovery_lcd.h"
 #include "stm32f412zx.h"
@@ -37,7 +38,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define TS_MULTI_TOUCH_SUPPORTED 1
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -79,6 +80,13 @@ const char* csv_data = ",A,B,C,VeryLongHeaderNameTooLongFloat,NextColumn\n"
                       "1,0,0,1,12,\n"
                       "2,2,=A1+C30,0,3,1\n"
                       "30,0,=6/B1,5,6,-2\n"
+                      "32,1,15,6,,0\n"
+                      "35,-45,22,0,=B2,0\n"
+                      "39,,,,,\n"
+                      // "42,3,2005,6,8,-1\n"
+                      // "52,,25,6,,9\n"
+                      // "72,1,1,1,,0\n"
+                      // "30,1,1,6,,0\n"
                       "3210900,0,=B2*0,5,1,-5\n";
 /* USER CODE END 0 */
 
@@ -143,7 +151,7 @@ int main(void)
   }
 
   //touchscreen initialization
-  uint16_t ts_x, ts_y;
+  uint16_t x1, x2, y1, y2;
   uint32_t ts_status = TS_OK;
   ts_status = BSP_TS_Init(BSP_LCD_GetXSize(), BSP_LCD_GetYSize());
 
@@ -160,12 +168,14 @@ int main(void)
   while (1)
   {
     ts_status = BSP_TS_GetState(&TS_State);
-    if (TS_State.touchDetected) {
-      ts_x = TS_State.touchX[0];
-      ts_y = TS_State.touchY[0];
-      BSP_LCD_DrawPixel(ts_x, ts_y, LCD_COLOR_RED);
 
+    if (TS_State.touchDetected) {
+      
+      x1 = TS_State.touchX[0]; x2 = TS_State.touchX[1];
+      y1 = TS_State.touchY[0]; y2 = TS_State.touchY[1];
+      BSP_LCD_DrawLine(x1, y1, x2, y2);
     }
+
     if (joy_flag) {
       joy_flag = 0;
       prev_row = new_row;

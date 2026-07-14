@@ -24,11 +24,11 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
+#define TS_MULTI_TOUCH_SUPPORTED 1
 /* Set Multi-touch as non supported */
-#ifndef TS_MULTI_TOUCH_SUPPORTED
-  #define TS_MULTI_TOUCH_SUPPORTED 0
-#endif
+// #ifndef TS_MULTI_TOUCH_SUPPORTED
+//   #define TS_MULTI_TOUCH_SUPPORTED 0
+// #endif
 
 /* Set Auto-calibration as non supported */  
 #ifndef TS_AUTO_CALIBRATION_SUPPORTED
