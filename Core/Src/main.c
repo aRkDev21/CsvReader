@@ -170,6 +170,10 @@ int main(void)
   while (1)
   {
     ts_status = BSP_TS_GetState(&TS_State);
+    if (TS_State.touchDetected) {
+      calibrate_coords(TS_State.touchX,TS_State.touchY);
+      BSP_LCD_DrawEllipse(TS_State.touchX[0], TS_State.touchY[0], 10, 10);
+    }
     uint8_t gest_id = getGestureID(&TS_State);
     switch (gest_id) {
       // i think ts should chnage viewport (?)

@@ -6,5 +6,6 @@
 
 #define SWIPE_MAX_TIME 500
 #define SWIPE_THRESHOLD 25
-void calibration_TS(TS_StateTypeDef* TS_State);
+
+void calibrate_coords(uint16_t *calib_x, uint16_t *calib_y);
 TS_GestureIdTypeDef getGestureID(TS_StateTypeDef* TS_State);

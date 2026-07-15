@@ -4,8 +4,28 @@
 #include "stm32f4xx_hal.h"
 #include <stdint.h>
 
-void calibration_TS(TS_StateTypeDef* TS_State) {
+void calibrate_coords(uint16_t *calib_x, uint16_t *calib_y) {
+    const int16_t x1 = 10, y1 = 40, // top left
+                x2 = 235, y2 = 30, // top right
+                x3 = 6, y3 = 205, // bot left
+                x4 = 235, y4 = 180; // bot right
 
+    int16_t x_left = x1 + ( (*calib_y-y1)*(x3-x1) )/(y3-y1);
+    int16_t x_right = x2 + ( (*calib_y-y2)*(x4-x2) )/(y4-y2);
+    
+    if (x_right == x_left) x_right++;
+    *calib_x = ((int32_t)(*calib_x-x_left)*239)/(x_right - x_left);
+
+    int16_t y_top = y1 + ((*calib_x-x1)*(y2-y1))/(x2-x1);
+    int16_t y_bot = y3 + ((*calib_x-x3)*(y4-y3))/(x4-x3);
+
+    if (y_bot == y_top) y_bot++;
+    *calib_y = ((int32_t)(*calib_y-y_top)*239)/(y_bot - y_top);
+
+    if (*calib_x < 0)   *calib_x = 0;
+    if (*calib_x > 239) *calib_x = 239;
+    if (*calib_y < 0)   *calib_y = 0;
+    if (*calib_y > 239) *calib_y = 239;
 }
 
 TS_GestureIdTypeDef getGestureID(TS_StateTypeDef* TS_State) {
