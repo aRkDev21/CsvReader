@@ -22,13 +22,17 @@
 #include "stm32412g_discovery.h"
 #include "stm32412g_discovery_lcd.h"
 #include "stm32f412zx.h"
+#include "stm32f4xx_hal.h"
 #include "stm32f4xx_hal_cortex.h"
 #include "stm32f4xx_hal_rcc_ex.h"
 #include "stm32f4xx_hal_tim.h"
 #include "stm32412g_discovery_ts.h"
+#include <stdint.h>
+#include <stdio.h>
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "touchscreen.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -38,7 +42,6 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define TS_MULTI_TOUCH_SUPPORTED 1
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -46,7 +49,7 @@
 
 /* USER CODE END PM */
 
-/* Private variables ---------------------------------------------------------*/
+/* Private variables -----------------------#define TS_MULTI_TOUCH_SUPPORTED 1----------------------------------*/
 I2C_HandleTypeDef hi2c1;
 
 TIM_HandleTypeDef htim6;
@@ -151,7 +154,6 @@ int main(void)
   }
 
   //touchscreen initialization
-  uint16_t x1, x2, y1, y2;
   uint32_t ts_status = TS_OK;
   ts_status = BSP_TS_Init(BSP_LCD_GetXSize(), BSP_LCD_GetYSize());
 
@@ -168,12 +170,32 @@ int main(void)
   while (1)
   {
     ts_status = BSP_TS_GetState(&TS_State);
-
-    if (TS_State.touchDetected) {
-      
-      x1 = TS_State.touchX[0]; x2 = TS_State.touchX[1];
-      y1 = TS_State.touchY[0]; y2 = TS_State.touchY[1];
-      BSP_LCD_DrawLine(x1, y1, x2, y2);
+    uint8_t gest_id = getGestureID(&TS_State);
+    switch (gest_id) {
+      // i think ts should chnage viewport (?)
+      case GEST_ID_MOVE_LEFT: {
+        StableJoyState = JOY_LEFT;
+        joy_flag = 1; 
+        break;
+      }
+      case GEST_ID_MOVE_RIGHT: {
+        StableJoyState = JOY_RIGHT;
+        joy_flag = 1; 
+        break;
+      }
+      case GEST_ID_MOVE_UP: {
+        StableJoyState = JOY_UP;
+        joy_flag = 1; 
+        break;
+      }
+      case GEST_ID_MOVE_DOWN: {
+        StableJoyState = JOY_DOWN;
+        joy_flag = 1; 
+        break;
+      }
+      default: {
+        break;
+      }
     }
 
     if (joy_flag) {

@@ -54,6 +54,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Core/Src/csv_render.c
     Core/Src/eval.c
     Core/Src/arena.c
+    Core/Src/touchscreen.c
     Drivers/BSP/STM32412G-Discovery/stm32412g_discovery.c
     Drivers/BSP/STM32412G-Discovery/stm32412g_discovery_lcd.c
     Drivers/BSP/Components/st7789h2/st7789h2.c
