@@ -1,5 +1,6 @@
 #include "csv.h"
 #include "arena.h"
+#include "stm32412g_discovery_lcd.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -60,7 +61,7 @@ void trim_newline(char* str){
 int len_header(Table* table, int i, int j) {
     int total_length = 0;
     for (int k = i; k < j; k++) {
-        total_length += strlen(table->col_names[k]) + 1; // +2 for ", "
+        total_length += strlen(table->col_names[k]) + LCD_DEFAULT_FONT.Width; // +2 for ", "
     }
     return total_length;
 }
@@ -71,7 +72,7 @@ int len_row(Table* table, int row, int i, int j) {
     for (int k = i; k < j; k++) {
         Cell* cell = &table->grid[row * table->col_count + k];
         if (k != j-1) {
-            total_length += 1; // for ", "
+            total_length += LCD_DEFAULT_FONT.Width; // for " "
         }
         if (cell->state == CSV_ERROR) {
             total_length += strlen("#ERROR");

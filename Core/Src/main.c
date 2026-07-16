@@ -27,6 +27,7 @@
 #include "stm32f4xx_hal_rcc_ex.h"
 #include "stm32f4xx_hal_tim.h"
 #include "stm32412g_discovery_ts.h"
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 
@@ -85,11 +86,11 @@ const char* csv_data = ",A,B,C,VeryLongHeaderNameTooLongFloat,NextColumn\n"
                       "30,0,=6/B1,5,6,-2\n"
                       "32,1,15,6,,0\n"
                       "35,-45,22,0,=B2,0\n"
-                      "39,,,,,\n"
-                      // "42,3,2005,6,8,-1\n"
-                      // "52,,25,6,,9\n"
-                      // "72,1,1,1,,0\n"
-                      // "30,1,1,6,,0\n"
+                      "39,7,,,,\n"
+                      "42,3,2005,6,8,-1\n"
+                      "52,,25,6,,9\n"
+                      "72,1,1,1,,0\n"
+                      "30,1,1,6,,0\n"
                       "3210900,0,=B2*0,5,1,-5\n";
 /* USER CODE END 0 */
 
@@ -125,6 +126,9 @@ int main(void)
   MX_I2C1_Init();
   MX_TIM6_Init();
   /* USER CODE BEGIN 2 */
+
+
+
   init_lcd();
   Table* table = read_csv(csv_data);
   if (table == NULL) {
@@ -142,7 +146,7 @@ int main(void)
 
   int start_row = 0;
   int start_col = 0;
-  bool viewport_changed = false;
+  volatile uint8_t viewport_changed = 0;
 
   render_table_to_lcd(table, start_row, start_col);
   highlight_cell(table, new_row, new_col, start_row, start_col);
@@ -171,37 +175,41 @@ int main(void)
   {
     ts_status = BSP_TS_GetState(&TS_State);
     if (TS_State.touchDetected) {
-      calibrate_coords(TS_State.touchX,TS_State.touchY);
+      //calibrate_coords(TS_State.touchX,TS_State.touchY);
       BSP_LCD_DrawEllipse(TS_State.touchX[0], TS_State.touchY[0], 10, 10);
     }
     uint8_t gest_id = getGestureID(&TS_State);
     switch (gest_id) {
       // i think ts should chnage viewport (?)
       case GEST_ID_MOVE_LEFT: {
-        StableJoyState = JOY_LEFT;
-        joy_flag = 1; 
+        if (start_col < table->col_count-1) start_col++;
+        viewport_changed = 1;
         break;
       }
       case GEST_ID_MOVE_RIGHT: {
-        StableJoyState = JOY_RIGHT;
-        joy_flag = 1; 
+        if (start_col > 0) start_col--;
+        viewport_changed = 1;
         break;
       }
       case GEST_ID_MOVE_UP: {
-        StableJoyState = JOY_UP;
-        joy_flag = 1; 
+        if (start_row > 0) start_row--;
+        viewport_changed = 1;
         break;
       }
       case GEST_ID_MOVE_DOWN: {
-        StableJoyState = JOY_DOWN;
-        joy_flag = 1; 
+        if (start_row < table->row_count-1) start_row++;
+        viewport_changed = 1;
         break;
       }
       default: {
+        viewport_changed = 0;
         break;
       }
     }
 
+    if (viewport_changed) {
+      render_table_to_lcd(table, start_row, start_col);
+    }
     if (joy_flag) {
       joy_flag = 0;
       prev_row = new_row;

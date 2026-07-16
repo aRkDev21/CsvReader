@@ -8,6 +8,7 @@
 #ifndef CSV_RENDER_H
 #define CSV_RENDER_H
 
+#include <stdint.h>
 #include <string.h>
 #include <stdbool.h>
 
@@ -20,7 +21,7 @@ void init_lcd();
 void display_error(const char* error_text);
 void find_cell_pos(Table* t, int row, int col, int* x, int* y, int start_row, int start_col);
 void render_table_to_lcd(Table*, int, int);
-void update_viewport(int selected_row, int selected_col, int* start_row, int* start_col, Table* table, bool* viewport_changed);
+void update_viewport(int selected_row, int selected_col, int* start_row, int* start_col, Table* table, volatile uint8_t* viewport_changed);
 int highlight_cell(Table* table, int new_row, int new_col, int start_row, int start_col);
 int unhighlight_cell(Table* table, int prev_row, int prev_col, int start_row, int start_col);
 
