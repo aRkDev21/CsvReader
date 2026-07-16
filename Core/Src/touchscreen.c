@@ -1,4 +1,3 @@
-// Функция опроса тачскрина с автокалибровкой "на лету" при первом запуске
 #include "touchscreen.h"
 #include "stm32412g_discovery_ts.h"
 #include "stm32f4xx_hal.h"
