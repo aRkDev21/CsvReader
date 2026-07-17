@@ -88,7 +88,7 @@ const char* csv_data = ",A,B,C,VeryLongHeaderNameTooLongFloat,NextColumn\n"
                       "35,-45,22,0,=B2,0\n"
                       "39,7,,,,\n"
                       "42,3,2005,6,8,-1\n"
-                      "52,,25,6,,9\n"
+                      "52,11,25,6,,9\n"
                       "72,1,1,1,,0\n"
                       "30,1,1,6,,0\n"
                       "3210900,0,=B2*0,5,1,-5\n";
@@ -182,22 +182,22 @@ int main(void)
     switch (gest_id) {
       // i think ts should chnage viewport (?)
       case GEST_ID_MOVE_LEFT: {
-        if (start_col < table->col_count-1) start_col++;
+        if (new_col < table->col_count-1) new_col++;
         viewport_changed = 1;
         break;
       }
       case GEST_ID_MOVE_RIGHT: {
-        if (start_col > 0) start_col--;
+        if (new_col > 0) new_col--;
         viewport_changed = 1;
         break;
       }
       case GEST_ID_MOVE_UP: {
-        if (start_row > 0) start_row--;
+        if (new_row < table->row_count-1) new_row++;
         viewport_changed = 1;
         break;
       }
       case GEST_ID_MOVE_DOWN: {
-        if (start_row < table->row_count-1) start_row++;
+        if (new_row > 0) new_row--;
         viewport_changed = 1;
         break;
       }
@@ -206,9 +206,13 @@ int main(void)
         break;
       }
     }
-
     if (viewport_changed) {
       render_table_to_lcd(table, start_row, start_col);
+      if (!highlight_cell(table, new_row, new_col, start_row, start_col)) {
+        new_row = prev_row;
+        new_col = prev_col;
+        highlight_cell(table, new_row, new_col, start_row, start_col);
+      }
     }
     if (joy_flag) {
       joy_flag = 0;
@@ -577,13 +581,13 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
       if (countMeasurements == 10) {
         if (StableJoyState != CandidateJoyState) {
           StableJoyState = CandidateJoyState;
-          CandidateJoyState = JOY_NONE;
+          // CandidateJoyState = JOY_NONE;
           if (StableJoyState != JOY_NONE)
             joy_flag = 1;
         }
-        else {
-          countMeasurements = 0;
-        }
+        // else {
+        //   countMeasurements = 0;
+        // }
       }
     }
     else {

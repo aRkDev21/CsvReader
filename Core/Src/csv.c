@@ -1,6 +1,7 @@
 #include "csv.h"
 #include "arena.h"
 #include "stm32412g_discovery_lcd.h"
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,6 +9,7 @@
 MemoryArena table_arena;
 
 int digit_count(int v){
+    int8_t is_neg = (v<0) ? 1 : 0;
 	v = (v>0) ? v:-v;
 	if (v == 0) return 1;
 	int c = 0;
@@ -16,7 +18,7 @@ int digit_count(int v){
 		v /= 10;
 	}
 
-	return c;
+	return c + is_neg;
 }
 
 int count_char(char *str, char target) {

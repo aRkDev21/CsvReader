@@ -40,7 +40,7 @@ int get_size_cell(Cell* cell) {
 int get_max_col_len(Table* table, int start_row, int col) {
     int mx = 0;
     int cur = 0;
-    if (start_row == 0) {
+    if (start_row == 0 && col >= 0) {
         mx = strlen(table->col_names[col]);
     }
     for (int i = start_row; i < table->row_count; i++) {
@@ -49,6 +49,17 @@ int get_max_col_len(Table* table, int start_row, int col) {
     }
 
     return mx;
+}
+
+int get_visible_width(Table* table, int s_row, int s_col, int col) {
+    int total_w = 0;
+    if (s_col == 0)
+        total_w += get_max_col_len(table, s_row, -1) * LCD_DEFAULT_FONT.Width + FONT_SIZE;// row id width
+
+    for (int j = s_col; j < col; j++) {
+        total_w += get_max_col_len(table, s_row, j) * LCD_DEFAULT_FONT.Width + FONT_SIZE;
+    }
+    return total_w;
 }
 
 uint16_t  get_cell_color(int row, int col) {
@@ -64,9 +75,10 @@ void update_viewport(int selected_row, int selected_col, int* start_row, int* st
     if (selected_row < *start_row && selected_row != -1) {
         *start_row = selected_row;
         *viewport_changed = 1;
-    } else if (selected_row+1 >= *start_row + (SCREEN_HEIGHT / OFFSET_LINE)) {
+    } else if (selected_row > ( (*start_row==0) ? 8 : (*start_row + 9) )) {
         // if we cant display the selected column 
-        *start_row = selected_row+2 - (SCREEN_HEIGHT / OFFSET_LINE);// 10 - table->row_count % 10
+        *start_row = selected_row - 9;
+        if (*start_row == 0) *start_row = 1;
         *viewport_changed = 1;
     }
 
@@ -86,6 +98,52 @@ void update_viewport(int selected_row, int selected_col, int* start_row, int* st
             *viewport_changed = 1;
         }  
     }
+
+    int total_w = get_visible_width(table, *start_row, *start_col, selected_col);
+    while (total_w < SCREEN_WIDTH && *start_col > 0) {
+        int next_start_col = *start_col - 1;
+
+        int x = 0, y = 0;
+        find_cell_pos(table, selected_row, selected_col, &x, &y, *start_row, next_start_col);
+        int cell_w = get_max_col_len(table, *start_row, selected_col) * LCD_DEFAULT_FONT.Width + FONT_SIZE;
+        
+        if (x + cell_w <= SCREEN_WIDTH) {
+            *start_col = next_start_col;
+            total_w = get_visible_width(table, *start_row, *start_col, selected_col);
+            *viewport_changed = 1;
+            if (*start_col >= selected_col) {
+                break;
+            }
+        } else {
+            break;
+        }
+    }
+
+    int total_h = (table->row_count - *start_row) * OFFSET_LINE;
+    if (*start_row == 0) {
+        total_h += OFFSET_LINE;
+    }
+    while (total_h > SCREEN_HEIGHT && *start_row > 0) {
+        int next_start_row = *start_row - 1;
+        
+        int cell_y = (selected_row - next_start_row) * OFFSET_LINE;
+        if (next_start_row == 0) {
+            cell_y += OFFSET_LINE;
+        }
+        
+        if (cell_y + OFFSET_LINE <= SCREEN_HEIGHT) {
+            *start_row = next_start_row;
+            total_h = (table->row_count - *start_row) * OFFSET_LINE;
+            if (*start_row == 0) {
+                total_h += OFFSET_LINE;
+            }
+            *viewport_changed = 1;
+        } else {
+            break; 
+        }
+    }
+
+
 
     if (*start_row == -1) *start_row = 0;
     if (*start_col == -1) *start_col = 0;
@@ -128,29 +186,7 @@ void find_cell_pos(Table* t, int row, int col, int* x, int* y, int start_row, in
         return;
     }
 
-    if (start_col == 0)
-        *x += get_max_col_len(t, start_row, -1) * LCD_DEFAULT_FONT.Width + FONT_SIZE;// row id width
-    // else 
-    //     *x = -LCD_DEFAULT_FONT.Width; // lol it works
-
-    // int j = start_col;
-    // while (j != col) {
-    //     *x += LCD_DEFAULT_FONT.Width; // space
-    //     Cell* cell = &t->grid[row * t->col_count + j];
-    //     if (cell->state == CSV_ERROR || cell->state == EMPTY) {
-    //         *x += strlen("#ERROR") * LCD_DEFAULT_FONT.Width; // #ERROR(5) or #EMPTY(5)
-    //     }
-    //     else {
-    //         *x += digit_count(cell->value) * LCD_DEFAULT_FONT.Width;
-    //     }
-    //     j++;
-    // }
-    // *x += LCD_DEFAULT_FONT.Width; // space
-    // *y = (row - start_row) * OFFSET_LINE + OFFSET_LINE;
-
-    for (int j = start_col; j < col; j++) {
-        *x += get_max_col_len(t, start_row, j) * LCD_DEFAULT_FONT.Width + FONT_SIZE;
-    }
+    *x += get_visible_width(t, start_row, start_col, col);
 }
 
 int draw_cell(Table* table, int row, int col, int *curX, int *curY, int start_row, int start_col, uint16_t color) {
@@ -243,7 +279,7 @@ void display_error(const char* error_text) {
     BSP_LCD_Clear(LCD_COLOR_WHITE);
 	BSP_LCD_SetTextColor(LCD_COLOR_RED);
 	BSP_LCD_DisplayStringAt(0, 
-                            SCREEN_HEIGHT/2 - LCD_DEFAULT_FONT.Height/2, 
+                            0, 
                             (uint8_t*) error_text, 
                             CENTER_MODE);
     BSP_LCD_SetTextColor(LCD_COLOR_DARKBLUE);
