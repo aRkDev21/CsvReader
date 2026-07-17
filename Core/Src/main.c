@@ -24,6 +24,7 @@
 #include "stm32f412zx.h"
 #include "stm32f4xx_hal.h"
 #include "stm32f4xx_hal_cortex.h"
+#include "stm32f4xx_hal_gpio.h"
 #include "stm32f4xx_hal_rcc_ex.h"
 #include "stm32f4xx_hal_tim.h"
 #include "stm32412g_discovery_ts.h"
@@ -207,6 +208,7 @@ int main(void)
       }
     }
     if (viewport_changed) {
+      update_viewport(new_row, new_col, &start_row, &start_col, table, &viewport_changed);
       render_table_to_lcd(table, start_row, start_col);
       if (!highlight_cell(table, new_row, new_col, start_row, start_col)) {
         new_row = prev_row;
@@ -502,7 +504,7 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin : CTP_INT_Pin */
   GPIO_InitStruct.Pin = CTP_INT_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   HAL_GPIO_Init(CTP_INT_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : I2C2_SDA_Pin */
