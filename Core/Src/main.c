@@ -63,6 +63,7 @@ SRAM_HandleTypeDef hsram1;
 /* USER CODE BEGIN PV */
 volatile JOYState_TypeDef StableJoyState = JOY_NONE;
 volatile uint8_t joy_flag = 0;
+volatile uint8_t ts_flag = 0;
 volatile JOYState_TypeDef CandidateJoyState = JOY_NONE;
 static TS_StateTypeDef TS_State = {0};
 
@@ -161,6 +162,7 @@ int main(void)
   //touchscreen initialization
   uint32_t ts_status = TS_OK;
   ts_status = BSP_TS_Init(BSP_LCD_GetXSize(), BSP_LCD_GetYSize());
+  ts_status |= BSP_TS_ITConfig();
 
   if (ts_status != TS_OK) {
       display_error("Failed to initialize touchscreen");
@@ -174,40 +176,39 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    ts_status = BSP_TS_GetState(&TS_State);
-    if (TS_State.touchDetected) {
-      //calibrate_coords(TS_State.touchX,TS_State.touchY);
-      BSP_LCD_DrawEllipse(TS_State.touchX[0], TS_State.touchY[0], 10, 10);
-    }
-    uint8_t gest_id = getGestureID(&TS_State);
-    switch (gest_id) {
-      // i think ts should chnage viewport (?)
-      case GEST_ID_MOVE_LEFT: {
-        if (new_col < table->col_count-1) new_col++;
-        viewport_changed = 1;
-        break;
+    if (ts_flag || is_tracking) 
+    {
+      ts_flag = 0;
+
+      ts_status = BSP_TS_GetState(&TS_State);
+      if (TS_State.touchDetected) {
+        //calibrate_coords(TS_State.touchX,TS_State.touchY);
+        BSP_LCD_DrawEllipse(TS_State.touchX[0], TS_State.touchY[0], 10, 10);
       }
-      case GEST_ID_MOVE_RIGHT: {
-        if (new_col > 0) new_col--;
-        viewport_changed = 1;
-        break;
+
+      uint8_t gest_id = getGestureID(&TS_State);
+      if (gest_id == GEST_ID_NO_GESTURE) continue;
+
+      switch (gest_id) {
+        // i think ts should chnage viewport (?)
+        case GEST_ID_MOVE_LEFT: {
+          if (new_col < table->col_count-1) new_col++;
+          break;
+        }
+        case GEST_ID_MOVE_RIGHT: {
+          if (new_col > 0) new_col--;
+          break;
+        }
+        case GEST_ID_MOVE_UP: {
+          if (new_row < table->row_count-1) new_row++;
+          break;
+        }
+        case GEST_ID_MOVE_DOWN: {
+          if (new_row > 0) new_row--;
+          break;
+        }
       }
-      case GEST_ID_MOVE_UP: {
-        if (new_row < table->row_count-1) new_row++;
-        viewport_changed = 1;
-        break;
-      }
-      case GEST_ID_MOVE_DOWN: {
-        if (new_row > 0) new_row--;
-        viewport_changed = 1;
-        break;
-      }
-      default: {
-        viewport_changed = 0;
-        break;
-      }
-    }
-    if (viewport_changed) {
+
       update_viewport(new_row, new_col, &start_row, &start_col, table, &viewport_changed);
       render_table_to_lcd(table, start_row, start_col);
       if (!highlight_cell(table, new_row, new_col, start_row, start_col)) {
@@ -503,9 +504,12 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin : CTP_INT_Pin */
   GPIO_InitStruct.Pin = CTP_INT_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   HAL_GPIO_Init(CTP_INT_GPIO_Port, &GPIO_InitStruct);
+
+  HAL_NVIC_SetPriority(TS_INT_EXTI_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(TS_INT_EXTI_IRQn);
 
   /*Configure GPIO pin : I2C2_SDA_Pin */
   GPIO_InitStruct.Pin = I2C2_SDA_Pin;
@@ -596,6 +600,12 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
       CandidateJoyState = current_state;
       countMeasurements = 0;
     };
+  }
+}
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
+  if (GPIO_Pin == CTP_INT_Pin) {
+    ts_flag = 1;
   }
 }
 /* USER CODE END 4 */

@@ -4,6 +4,8 @@
 #include "stm32f4xx_hal.h"
 #include <stdint.h>
 
+uint8_t is_tracking = 0U;
+
 void calibrate_coords(uint16_t *calib_x, uint16_t *calib_y) {
     const int16_t x1 = 10, y1 = 40, // top left
                 x2 = 235, y2 = 30, // top right
@@ -29,7 +31,6 @@ void calibrate_coords(uint16_t *calib_x, uint16_t *calib_y) {
 }
 
 TS_GestureIdTypeDef getGestureID(TS_StateTypeDef* TS_State) {
-    static uint8_t is_tracking = 0;
     static uint8_t x_start = 0, y_start = 0;
     static uint32_t gesture_start_time = 0;
 

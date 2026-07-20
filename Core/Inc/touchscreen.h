@@ -7,5 +7,7 @@
 #define SWIPE_MAX_TIME 500
 #define SWIPE_THRESHOLD 25
 
+extern uint8_t is_tracking;
+
 void calibrate_coords(uint16_t *calib_x, uint16_t *calib_y);
 TS_GestureIdTypeDef getGestureID(TS_StateTypeDef* TS_State);
