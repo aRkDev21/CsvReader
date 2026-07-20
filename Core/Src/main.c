@@ -251,8 +251,8 @@ int main(void)
         ts_flag = 0;
 
         ts_status = BSP_TS_GetState(&TS_State);
-        if (TS_State.touchDetected) {
-          //calibrate_coords(TS_State.touchX,TS_State.touchY);
+        if (!is_tracking) {
+          calibrate_coords(TS_State.touchX,TS_State.touchY);
           BSP_LCD_DrawEllipse(TS_State.touchX[0], TS_State.touchY[0], 10, 10);
         }
 
@@ -263,7 +263,6 @@ int main(void)
         int old_s_col = start_col;
 
         switch (gest_id) {
-          // i think ts should chnage viewport (?)
           case GEST_ID_MOVE_LEFT: {
             if (can_scroll_right(table, start_row, start_col)) start_col++;
             break;
@@ -284,10 +283,7 @@ int main(void)
 
         if (start_col != old_s_col || start_row != old_s_row){
           render_table_to_lcd(table, start_row, start_col);
-          if (start_row > new_row || start_col > new_col) {
-            
-          }
-          else {
+          if (is_cell_visible(table, new_row, new_col, start_row, start_col)) {
             highlight_cell(table, new_row, new_col, start_row, start_col);
           }
         }
@@ -300,7 +296,7 @@ int main(void)
 
         switch (StableJoyState) {
           case JOY_UP:
-              if (new_row >= 0) {
+              if (new_row - start_row >= -1) {
                 if (new_row == 0 && new_col == -1) break;
                 new_row--;
               }
@@ -311,7 +307,7 @@ int main(void)
               }
               break;     
           case JOY_LEFT:
-              if (new_col >= 0) {
+              if (new_col - start_col >= -1) {
                 if (new_col == 0 && new_row == -1) break;
                   new_col--;
               }
@@ -353,13 +349,13 @@ int main(void)
           
         } 
       }
-  }
+    }
 
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
   /* USER CODE END 3 */
-}
+  }
 }
 /**
   * @brief System Clock Configuration

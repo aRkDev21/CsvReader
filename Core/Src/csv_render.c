@@ -86,7 +86,8 @@ int get_visible_width(Table* table, int s_row, int s_col, int col) {
 }
 
 uint8_t is_cell_visible(Table* table, int row, int col, int start_row, int start_col) {
-    //if (row < start_row || col < start_col) return 0;
+    if (row < start_row && row != -1) return 0;
+    if (col < start_col && col != -1) return 0;
 
     int header_offset = (start_row == 0) ? OFFSET_LINE : 0;
     int cell_y = (row - start_row) * OFFSET_LINE + header_offset;
@@ -127,7 +128,7 @@ uint16_t  get_cell_color(int row, int col) {
 }
 
 void update_viewport(int selected_row, int selected_col, int* start_row, int* start_col, Table* table, volatile uint8_t* viewport_changed) {
-    *viewport_changed = false;
+    *viewport_changed = 0;
 
     if (selected_row < *start_row && selected_row != -1) {
         *start_row = selected_row;
@@ -180,7 +181,7 @@ void update_viewport(int selected_row, int selected_col, int* start_row, int* st
     if (*start_row == 0) {
         total_h += OFFSET_LINE;
     }
-    while (total_h > SCREEN_HEIGHT && *start_row > 0) {
+    while (total_h >= SCREEN_HEIGHT && *start_row > 0) {
         int next_start_row = *start_row - 1;
         
         int cell_y = (selected_row - next_start_row) * OFFSET_LINE;
@@ -345,6 +346,7 @@ void display_error(const char* error_text) {
 
 int unhighlight_cell(Table* table, int cur_row, int cur_col, int start_row, int start_col) {
     // remove highlight from the previous cell
+    if (!is_cell_visible(table, cur_row, cur_col, start_row, start_col)) return 0;
     int curX = 0, curY = 0;
     return draw_cell(table, cur_row, cur_col, &curX, &curY, start_row, start_col, get_cell_color(cur_row, cur_col));
 }
