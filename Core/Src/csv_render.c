@@ -191,8 +191,8 @@ void find_cell_pos(Table* t, int row, int col, int* x, int* y, int start_row, in
 
 int draw_cell(Table* table, int row, int col, int *curX, int *curY, int start_row, int start_col, uint16_t color) {
     find_cell_pos(table, row, col , curX, curY, start_row, start_col);
-    if (*curX + get_max_col_len(table, start_row, col) * LCD_DEFAULT_FONT.Width + FONT_SIZE >= SCREEN_WIDTH) return 0;
-    if (*curY >= SCREEN_WIDTH) return 0;
+    //if (*curX + get_max_col_len(table, start_row, col) * LCD_DEFAULT_FONT.Width + FONT_SIZE >= SCREEN_WIDTH) return 0;
+    if (*curY >= SCREEN_HEIGHT || *curX >= SCREEN_WIDTH) return 0;
     int cell_w, cell_h;
     cell_h = OFFSET_LINE;
     cell_w = get_max_col_len(table, start_row, col) * LCD_DEFAULT_FONT.Width + FONT_SIZE;
