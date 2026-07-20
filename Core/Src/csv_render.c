@@ -62,6 +62,40 @@ int get_visible_width(Table* table, int s_row, int s_col, int col) {
     return total_w;
 }
 
+uint8_t is_cell_visible(Table* table, int row, int col, int start_row, int start_col) {
+    if (row < start_row || col < start_col) return 0;
+
+    int header_offset = (start_row == 0) ? OFFSET_LINE : 0;
+    int cell_y = (row - start_row) * OFFSET_LINE + header_offset;
+    if (cell_y + OFFSET_LINE > SCREEN_HEIGHT) return 0; 
+
+    int cell_x = get_visible_width(table, start_row, start_col, col);
+    int cell_w = get_max_col_len(table, start_row, col) * LCD_DEFAULT_FONT.Width + FONT_SIZE;
+    if (cell_x + cell_w > SCREEN_WIDTH) return 0;
+
+    return 1;
+}
+
+uint8_t can_scroll_right(Table* table, int start_row, int start_col) {
+    if (start_col >= table->col_count - 1) return 0;
+
+    int last_col = table->col_count - 1;
+    int last_col_x = get_visible_width(table, start_row, start_col, last_col);
+    int last_col_w = get_max_col_len(table, start_row, last_col) * LCD_DEFAULT_FONT.Width + FONT_SIZE;
+    
+    return (last_col_x + last_col_w > SCREEN_WIDTH) ? 1 : 0;
+}
+
+
+uint8_t can_scroll_down(Table* table, int start_row) {
+    if (start_row >= table->row_count - 1) return 0;
+
+    int header_offset = (start_row == 0) ? OFFSET_LINE : 0;
+    int total_h = (table->row_count - start_row) * OFFSET_LINE + header_offset;
+    
+    return (total_h > SCREEN_HEIGHT) ? 1 : 0;
+}
+
 uint16_t  get_cell_color(int row, int col) {
     if ( (row + col) % 2 != 0) {
         return LCD_COLOR_LIGHTGRAY;
@@ -294,6 +328,7 @@ int unhighlight_cell(Table* table, int cur_row, int cur_col, int start_row, int 
 
 int highlight_cell(Table* table, int new_row, int new_col, int start_row, int start_col) {
     // highlight the new cell
+    if (!is_cell_visible(table, new_row, new_col, start_row, start_col)) return 0;
     int curX = 0, curY = 0;
     return draw_cell(table, new_row, new_col, &curX, &curY, start_row, start_col, LCD_COLOR_DARKGRAY);
 }

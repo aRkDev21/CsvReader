@@ -189,34 +189,40 @@ int main(void)
       uint8_t gest_id = getGestureID(&TS_State);
       if (gest_id == GEST_ID_NO_GESTURE) continue;
 
+      int old_s_row = start_row;
+      int old_s_col = start_col;
+
       switch (gest_id) {
         // i think ts should chnage viewport (?)
         case GEST_ID_MOVE_LEFT: {
-          if (new_col < table->col_count-1) new_col++;
+          if (can_scroll_right(table, start_row, start_col)) start_col++;
           break;
         }
         case GEST_ID_MOVE_RIGHT: {
-          if (new_col > 0) new_col--;
+          if (start_col > 0) start_col--;
           break;
         }
         case GEST_ID_MOVE_UP: {
-          if (new_row < table->row_count-1) new_row++;
+          if (can_scroll_down(table, start_row)) start_row++;
           break;
         }
         case GEST_ID_MOVE_DOWN: {
-          if (new_row > 0) new_row--;
+          if (start_row > 0) start_row--;
           break;
         }
       }
 
-      update_viewport(new_row, new_col, &start_row, &start_col, table, &viewport_changed);
-      render_table_to_lcd(table, start_row, start_col);
-      if (!highlight_cell(table, new_row, new_col, start_row, start_col)) {
-        new_row = prev_row;
-        new_col = prev_col;
-        highlight_cell(table, new_row, new_col, start_row, start_col);
+      if (start_col != old_s_col || start_row != old_s_row){
+        render_table_to_lcd(table, start_row, start_col);
+        if (start_row > new_row || start_col > new_col) {
+          
+        }
+        else {
+          highlight_cell(table, new_row, new_col, start_row, start_col);
+        }
       }
     }
+
     if (joy_flag) {
       joy_flag = 0;
       prev_row = new_row;
