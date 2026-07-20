@@ -7,8 +7,10 @@
 
 #include "csv_render.h"
 #include "csv.h"
+#include "fonts.h"
 #include "stm32412g_discovery_lcd.h"
 #include <stdint.h>
+#include <stdio.h>
 
 #define FONT_SIZE 12
 #define OFFSET_LINE 24
@@ -26,6 +28,27 @@ void init_lcd() {
 	BSP_LCD_SetTextColor(LCD_COLOR_DARKBLUE);
 }
 
+void display_main_menu(uint8_t count, uint8_t selected) {
+    BSP_LCD_SetBackColor(LCD_COLOR_WHITE);
+	BSP_LCD_Clear(LCD_COLOR_WHITE);
+
+	BSP_LCD_SetTextColor(LCD_COLOR_DARKBLUE);
+
+    BSP_LCD_SetFont(&Font16);
+    BSP_LCD_DisplayStringAt(0, 0, (uint8_t*) "CSV BARE METAL TOOL", CENTER_MODE);
+
+    uint16_t offsetY = Font16.Height;
+    BSP_LCD_SetFont(&LCD_DEFAULT_FONT);
+    char buf[32];
+    for (int i = 0; i < count; i++) {
+        sprintf(buf, "Table %d", i+1);
+        if (i == selected) {
+            BSP_LCD_SetBackColor(LCD_COLOR_DARKGRAY);
+        }
+        BSP_LCD_DisplayStringAt(0, offsetY + OFFSET_LINE*i, (uint8_t*)buf, CENTER_MODE);
+        BSP_LCD_SetBackColor(LCD_COLOR_WHITE);
+    }
+}
 int get_size_cell(Cell* cell) {
     int size = 0;
     if (cell->state == DONE) {
@@ -63,7 +86,7 @@ int get_visible_width(Table* table, int s_row, int s_col, int col) {
 }
 
 uint8_t is_cell_visible(Table* table, int row, int col, int start_row, int start_col) {
-    if (row < start_row || col < start_col) return 0;
+    //if (row < start_row || col < start_col) return 0;
 
     int header_offset = (start_row == 0) ? OFFSET_LINE : 0;
     int cell_y = (row - start_row) * OFFSET_LINE + header_offset;

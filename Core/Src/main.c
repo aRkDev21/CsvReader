@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "csv.h"
 #include "csv_render.h"
 #include "stm32412g_discovery.h"
 #include "stm32412g_discovery_lcd.h"
@@ -39,7 +40,10 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
+typedef enum {
+    STATE_MENU,
+    STATE_TABLE
+} AppState;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -82,7 +86,8 @@ static void MX_TIM6_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-const char* csv_data = ",A,B,C,VeryLongHeaderNameTooLongFloat,NextColumn\n"
+const char* csv_data[] = {
+                ",A,B,C,VeryLongHeaderNameTooLongFloat,NextColumn\n"
                       "1,0,0,1,12,\n"
                       "2,2,=A1+C30,0,3,1\n"
                       "30,0,=6/B1,5,6,-2\n"
@@ -93,7 +98,34 @@ const char* csv_data = ",A,B,C,VeryLongHeaderNameTooLongFloat,NextColumn\n"
                       "52,11,25,6,,9\n"
                       "72,1,1,1,,0\n"
                       "30,1,1,6,,0\n"
-                      "3210900,0,=B2*0,5,1,-5\n";
+                      "3210900,0,=B2*0,5,1,-5\n", 
+
+                  ",A,B,C,VeryLongHeaderNameTooLongFloat,NextColumn\n"
+                      "1,0,0,1,12,\n"
+                      "2,2,=A1+C30,0,3,1\n"
+                      "30,0,=6/B1,5,6,-2\n"
+                      "32,1,15,6,,0\n"
+                      "35,-45,22,0,=B2,0\n"
+                      "39,7,,,,\n"
+                      "42,3,2005,6,8,-1\n"
+                      "52,11,25,6,,9\n"
+                      "72,1,1,1,,0\n"
+                      "30,1,1,6,,0\n"
+                      "3210900,0,=B2*0,5,1,-5\n", 
+                    
+                  ",A,B,C,VeryLongHeaderNameTooLongFloat,NextColumn\n"
+                      "1,0,0,1,12,\n"
+                      "2,2,=A1+C30,0,3,1\n"
+                      "30,0,=6/B1,5,6,-2\n"
+                      "32,1,15,6,,0\n"
+                      "35,-45,22,0,=B2,0\n"
+                      "39,7,,,,\n"
+                      "42,3,2005,6,8,-1\n"
+                      "52,11,25,6,,9\n"
+                      "72,1,1,1,,0\n"
+                      "30,1,1,6,,0\n"
+                      "3210900,0,=B2*0,5,1,-5\n", 
+                    };
 /* USER CODE END 0 */
 
 /**
@@ -128,15 +160,26 @@ int main(void)
   MX_I2C1_Init();
   MX_TIM6_Init();
   /* USER CODE BEGIN 2 */
-
-
-
   init_lcd();
-  Table* table = read_csv(csv_data);
-  if (table == NULL) {
-      display_error("Failed to parse CSV data");
+
+  uint8_t status = 0;
+  status = BSP_JOY_Init(JOY_MODE_GPIO);
+  if (status != HAL_OK) {
+      display_error("Failed to initialize joystick");
   }
-  evaluate_all(table);
+
+  uint32_t ts_status = TS_OK;
+  ts_status = BSP_TS_Init(BSP_LCD_GetXSize(), BSP_LCD_GetYSize());
+  ts_status |= BSP_TS_ITConfig();
+
+  if (ts_status != TS_OK) {
+      display_error("Failed to initialize touchscreen");
+  }
+
+  AppState cur_state = STATE_MENU;
+  int selected_table = 0;
+  int total_tables = 3;
+  Table* table = NULL;
 
   // selected cell coordinates
   int new_row = 0;
@@ -150,25 +193,7 @@ int main(void)
   int start_col = 0;
   volatile uint8_t viewport_changed = 0;
 
-  render_table_to_lcd(table, start_row, start_col);
-  highlight_cell(table, new_row, new_col, start_row, start_col);
-
-  uint8_t status = 0;
-  status = BSP_JOY_Init(JOY_MODE_GPIO);
-  if (status != HAL_OK) {
-      display_error("Failed to initialize joystick");
-  }
-
-  //touchscreen initialization
-  uint32_t ts_status = TS_OK;
-  ts_status = BSP_TS_Init(BSP_LCD_GetXSize(), BSP_LCD_GetYSize());
-  ts_status |= BSP_TS_ITConfig();
-
-  if (ts_status != TS_OK) {
-      display_error("Failed to initialize touchscreen");
-  }
-
-
+  display_main_menu(total_tables, selected_table);
 
   /* USER CODE END 2 */
 
@@ -176,112 +201,166 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    if (ts_flag || is_tracking) 
-    {
-      ts_flag = 0;
+    if (cur_state == STATE_MENU) {
+      if (joy_flag) {
+        joy_flag = 0;
+        switch (StableJoyState) {
+          case JOY_UP:{
+            if (selected_table > 0) {
+              selected_table--;
+              display_main_menu(total_tables, selected_table);
+            }
+            break;
+          }
+            
+          case JOY_DOWN:{
+            if (selected_table < total_tables - 1) {
+              selected_table++;
+              display_main_menu(total_tables, selected_table);
+            }
+            break;
+          }
 
-      ts_status = BSP_TS_GetState(&TS_State);
-      if (TS_State.touchDetected) {
-        //calibrate_coords(TS_State.touchX,TS_State.touchY);
-        BSP_LCD_DrawEllipse(TS_State.touchX[0], TS_State.touchY[0], 10, 10);
-      }
+          case JOY_SEL:{
+            table = read_csv(csv_data[selected_table]);
+            if (table == NULL) {
+                display_error("Failed to parse CSV data");
+                break;
+            }
+            evaluate_all(table);
 
-      uint8_t gest_id = getGestureID(&TS_State);
-      if (gest_id == GEST_ID_NO_GESTURE) continue;
+            new_row = 0; new_col = 0;
+            start_row = 0; start_col = 0;
 
-      int old_s_row = start_row;
-      int old_s_col = start_col;
+            render_table_to_lcd(table, start_row, start_col);
+            highlight_cell(table, new_row, new_col, start_row, start_col);
 
-      switch (gest_id) {
-        // i think ts should chnage viewport (?)
-        case GEST_ID_MOVE_LEFT: {
-          if (can_scroll_right(table, start_row, start_col)) start_col++;
-          break;
-        }
-        case GEST_ID_MOVE_RIGHT: {
-          if (start_col > 0) start_col--;
-          break;
-        }
-        case GEST_ID_MOVE_UP: {
-          if (can_scroll_down(table, start_row)) start_row++;
-          break;
-        }
-        case GEST_ID_MOVE_DOWN: {
-          if (start_row > 0) start_row--;
-          break;
-        }
-      }
+            cur_state = STATE_TABLE;
+            StableJoyState = JOY_NONE;
+            break;
+          }
 
-      if (start_col != old_s_col || start_row != old_s_row){
-        render_table_to_lcd(table, start_row, start_col);
-        if (start_row > new_row || start_col > new_col) {
-          
-        }
-        else {
-          highlight_cell(table, new_row, new_col, start_row, start_col);
+          default:
+            break;
         }
       }
     }
+    else if (cur_state == STATE_TABLE) {
+      if (ts_flag || is_tracking) 
+      {
+        ts_flag = 0;
 
-    if (joy_flag) {
-      joy_flag = 0;
-      prev_row = new_row;
-      prev_col = new_col;
+        ts_status = BSP_TS_GetState(&TS_State);
+        if (TS_State.touchDetected) {
+          //calibrate_coords(TS_State.touchX,TS_State.touchY);
+          BSP_LCD_DrawEllipse(TS_State.touchX[0], TS_State.touchY[0], 10, 10);
+        }
 
-      switch (StableJoyState) {
-        case JOY_UP:
-            if (new_row >= 0) {
-              if (new_row == 0 && new_col == -1) break;
-              new_row--;
-            }
-            break;
-        case JOY_DOWN:
-            if (new_row < table->row_count - 1) {
-                new_row++;
-            }
-            break;     
-        case JOY_LEFT:
-            if (new_col >= 0) {
-              if (new_col == 0 && new_row == -1) break;
-                new_col--;
-            }
-            break;
-        case JOY_RIGHT:
-            if (new_col < table->col_count - 1) {
-                new_col++;
-            }
-            break;
-        default:
-            break;
-      }
-      if (StableJoyState != JOY_NONE) {
-          update_viewport(new_row, new_col, &start_row, &start_col, table, &viewport_changed);
+        uint8_t gest_id = getGestureID(&TS_State);
+        if (gest_id == GEST_ID_NO_GESTURE) continue;
 
-          if (viewport_changed) {
-              render_table_to_lcd(table, start_row, start_col);
+        int old_s_row = start_row;
+        int old_s_col = start_col;
+
+        switch (gest_id) {
+          // i think ts should chnage viewport (?)
+          case GEST_ID_MOVE_LEFT: {
+            if (can_scroll_right(table, start_row, start_col)) start_col++;
+            break;
           }
+          case GEST_ID_MOVE_RIGHT: {
+            if (start_col > 0) start_col--;
+            break;
+          }
+          case GEST_ID_MOVE_UP: {
+            if (can_scroll_down(table, start_row)) start_row++;
+            break;
+          }
+          case GEST_ID_MOVE_DOWN: {
+            if (start_row > 0) start_row--;
+            break;
+          }
+        }
 
+        if (start_col != old_s_col || start_row != old_s_row){
+          render_table_to_lcd(table, start_row, start_col);
+          if (start_row > new_row || start_col > new_col) {
+            
+          }
           else {
-            unhighlight_cell(table, prev_row, prev_col, start_row, start_col);
-          }
-
-          if (!highlight_cell(table, new_row, new_col, start_row, start_col)) {
-            new_row = prev_row;
-            new_col = prev_col;
             highlight_cell(table, new_row, new_col, start_row, start_col);
-
           }
+        }
+      }
+
+      if (joy_flag) {
+        joy_flag = 0;
+        prev_row = new_row;
+        prev_col = new_col;
+
+        switch (StableJoyState) {
+          case JOY_UP:
+              if (new_row >= 0) {
+                if (new_row == 0 && new_col == -1) break;
+                new_row--;
+              }
+              break;
+          case JOY_DOWN:
+              if (new_row < table->row_count - 1) {
+                  new_row++;
+              }
+              break;     
+          case JOY_LEFT:
+              if (new_col >= 0) {
+                if (new_col == 0 && new_row == -1) break;
+                  new_col--;
+              }
+              break;
+          case JOY_RIGHT:
+              if (new_col < table->col_count - 1) {
+                  new_col++;
+              }
+              break;
+
+          case JOY_SEL:
+              free_table(table);
+              table = NULL;
+              display_main_menu(total_tables, selected_table);
+              StableJoyState = JOY_NONE;
+              cur_state = STATE_MENU;
+              break;
+          default:
+              break;
+        }
+
+        if (StableJoyState != JOY_NONE) {
+            update_viewport(new_row, new_col, &start_row, &start_col, table, &viewport_changed);
+
+            if (viewport_changed) {
+                render_table_to_lcd(table, start_row, start_col);
+            }
+
+            else {
+              unhighlight_cell(table, prev_row, prev_col, start_row, start_col);
+            }
+
+            if (!highlight_cell(table, new_row, new_col, start_row, start_col)) {
+              new_row = prev_row;
+              new_col = prev_col;
+              highlight_cell(table, new_row, new_col, start_row, start_col);
+
+            }
           
+        } 
       }
   }
-  }
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-  free_table(table);
   /* USER CODE END 3 */
 }
-
+}
 /**
   * @brief System Clock Configuration
   * @retval None
