@@ -21,6 +21,8 @@ void init_lcd();
 void display_error(const char* error_text);
 void display_main_menu(uint8_t count, uint8_t selected);
 void find_cell_pos(Table* t, int row, int col, int* x, int* y, int start_row, int start_col);
+int get_clicked_row(int start_row, int y);
+int get_clicked_col(Table* table, int start_col, int start_row, int x);
 void render_table_to_lcd(Table*, int, int);
 void update_viewport(int selected_row, int selected_col, int* start_row, int* start_col, Table* table, volatile uint8_t* viewport_changed);
 int highlight_cell(Table* table, int new_row, int new_col, int start_row, int start_col);

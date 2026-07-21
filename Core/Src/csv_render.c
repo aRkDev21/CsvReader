@@ -86,18 +86,16 @@ int get_visible_width(Table* table, int s_row, int s_col, int col) {
 }
 
 uint8_t is_cell_visible(Table* table, int row, int col, int start_row, int start_col) {
-    if (row < start_row && row != -1) return 0;
-    if (col < start_col && col != -1) return 0;
+    int x, y;
+    find_cell_pos(table, row, col, &x, &y, start_row, start_col);
 
-    int header_offset = (start_row == 0) ? OFFSET_LINE : 0;
-    int cell_y = (row - start_row) * OFFSET_LINE + header_offset;
-    if (cell_y + OFFSET_LINE > SCREEN_HEIGHT) return 0; 
+    // Берем ширину и высоту ячейки
+    int w = get_max_col_len(table, start_row, col) * LCD_DEFAULT_FONT.Width + FONT_SIZE;
+    int h = OFFSET_LINE;
 
-    int cell_x = get_visible_width(table, start_row, start_col, col);
-    int cell_w = get_max_col_len(table, start_row, col) * LCD_DEFAULT_FONT.Width + FONT_SIZE;
-    if (cell_x + cell_w > SCREEN_WIDTH) return 0;
-
-    return 1;
+    if ((x + w) > 0 && x < 240 && (y + h) > 0 && y < 240) return 1;
+    
+    return 0;
 }
 
 uint8_t can_scroll_right(Table* table, int start_row, int start_col) {
@@ -239,22 +237,26 @@ void find_cell_pos(Table* t, int row, int col, int* x, int* y, int start_row, in
         *y = (row - start_row) * OFFSET_LINE + ( (start_row == 0) ? OFFSET_LINE : 0 );
     }
 
-    if (col == -1) {
-        *x = 0;
-        return;
-    }
+    int id_w = get_max_col_len(t, start_row, -1) * LCD_DEFAULT_FONT.Width + FONT_SIZE;
 
-    *x += get_visible_width(t, start_row, start_col, col);
+    if (col == -1) {
+        *x = ((start_col == 0) ? 0 : -id_w);
+    }
+    else {
+        *x = get_visible_width(t, start_row, start_col, col);
+        if (start_col > 0) *x -= id_w;
+    }
 }
 
 int draw_cell(Table* table, int row, int col, int *curX, int *curY, int start_row, int start_col, uint16_t color) {
     find_cell_pos(table, row, col , curX, curY, start_row, start_col);
-    //if (*curX + get_max_col_len(table, start_row, col) * LCD_DEFAULT_FONT.Width + FONT_SIZE >= SCREEN_WIDTH) return 0;
     if (*curY >= SCREEN_HEIGHT || *curX >= SCREEN_WIDTH) return 0;
     int cell_w, cell_h;
     cell_h = OFFSET_LINE;
     cell_w = get_max_col_len(table, start_row, col) * LCD_DEFAULT_FONT.Width + FONT_SIZE;
     if (*curX + cell_w >= SCREEN_WIDTH) cell_w = SCREEN_WIDTH - *curX;
+    int copyX = *curX;
+    *curX = (*curX < 0) ? 0 : *curX;
     BSP_LCD_SetTextColor(color);
     BSP_LCD_SetBackColor(color);
     if (row == -1 && col == 0 && 0) {
@@ -291,6 +293,7 @@ int draw_cell(Table* table, int row, int col, int *curX, int *curY, int start_ro
         if (textX <= *curX) textX = *curX;
         draw_cell_value(cell, &textX, &textY);
     }
+    *curX = copyX;
     return 1;
 }
 
@@ -356,4 +359,30 @@ int highlight_cell(Table* table, int new_row, int new_col, int start_row, int st
     if (!is_cell_visible(table, new_row, new_col, start_row, start_col)) return 0;
     int curX = 0, curY = 0;
     return draw_cell(table, new_row, new_col, &curX, &curY, start_row, start_col, LCD_COLOR_DARKGRAY);
+}
+
+int get_clicked_row(int start_row, int y) {
+    if (y < OFFSET_LINE) {
+        return start_row - 1;
+    }
+
+    return start_row + ((y-OFFSET_LINE) / OFFSET_LINE);
+}
+
+int get_clicked_col(Table *table, int start_col, int start_row, int x) {
+    int curX = ((start_col == 0) ? get_max_col_len(table, start_row, -1) * LCD_DEFAULT_FONT.Width + FONT_SIZE : 0);
+    if (start_col == 0 && x < curX) {
+        return -1;
+    }
+    for (int col = start_col; col < table->col_count; col++) {
+        int col_w = get_max_col_len(table, start_row, col) * LCD_DEFAULT_FONT.Width + FONT_SIZE;
+        if (x >= curX && x < (curX + col_w)) {
+            return col;
+        }
+
+        curX += col_w;
+        if (curX >= SCREEN_WIDTH) break;
+    }
+
+   return -2;
 }

@@ -251,41 +251,53 @@ int main(void)
         ts_flag = 0;
 
         ts_status = BSP_TS_GetState(&TS_State);
-        if (!is_tracking) {
-          calibrate_coords(TS_State.touchX,TS_State.touchY);
-          BSP_LCD_DrawEllipse(TS_State.touchX[0], TS_State.touchY[0], 10, 10);
-        }
+        calibrate_coords(&TS_State.touchX[0], &TS_State.touchY[0]);
 
-        uint8_t gest_id = getGestureID(&TS_State);
-        if (gest_id == GEST_ID_NO_GESTURE) continue;
+        uint16_t click_x = 0, click_y = 0;
+        uint8_t gest_id = getGestureID(&TS_State, &click_x, &click_y);
 
         int old_s_row = start_row;
         int old_s_col = start_col;
 
-        switch (gest_id) {
-          case GEST_ID_MOVE_LEFT: {
-            if (can_scroll_right(table, start_row, start_col)) start_col++;
-            break;
-          }
-          case GEST_ID_MOVE_RIGHT: {
-            if (start_col > 0) start_col--;
-            break;
-          }
-          case GEST_ID_MOVE_UP: {
-            if (can_scroll_down(table, start_row)) start_row++;
-            break;
-          }
-          case GEST_ID_MOVE_DOWN: {
-            if (start_row > 0) start_row--;
-            break;
+        if (gest_id != GEST_ID_NO_GESTURE){          
+          switch (gest_id) {
+            case GEST_ID_MOVE_LEFT: {
+              if (can_scroll_right(table, start_row, start_col)) start_col++;
+              break;
+            }
+            case GEST_ID_MOVE_RIGHT: {
+              if (start_col > 0) start_col--;
+              break;
+            }
+            case GEST_ID_MOVE_UP: {
+              if (can_scroll_down(table, start_row)) start_row++;
+              break;
+            }
+            case GEST_ID_MOVE_DOWN: {
+              if (start_row > 0) start_row--;
+              break;
+            }
+            case GEST_ID_CLICK: {
+              int clicked_row = get_clicked_row(start_row, click_y);
+              int clicked_col = get_clicked_col(table, start_col, start_row, click_x);
+
+              if (clicked_row >= -1 && clicked_col >= -1 && (clicked_row != -1 || clicked_col != -1)) {
+                unhighlight_cell(table, new_row, new_col, start_row, start_col);
+                
+                new_row = clicked_row;
+                new_col = clicked_col;
+
+                highlight_cell(table, new_row, new_col, start_row, start_col);
+              }
+              break;
+            }
           }
         }
+        
 
         if (start_col != old_s_col || start_row != old_s_row){
           render_table_to_lcd(table, start_row, start_col);
-          if (is_cell_visible(table, new_row, new_col, start_row, start_col)) {
-            highlight_cell(table, new_row, new_col, start_row, start_col);
-          }
+          highlight_cell(table, new_row, new_col, start_row, start_col); 
         }
       }
 

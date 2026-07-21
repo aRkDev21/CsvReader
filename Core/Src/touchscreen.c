@@ -4,7 +4,7 @@
 #include "stm32f4xx_hal.h"
 #include <stdint.h>
 
-uint8_t is_tracking = 0U;
+uint8_t is_tracking = 0;
 
 void calibrate_coords(uint16_t *calib_x, uint16_t *calib_y) {
     const int16_t x1 = 10, y1 = 40, // top left
@@ -30,15 +30,19 @@ void calibrate_coords(uint16_t *calib_x, uint16_t *calib_y) {
     if (*calib_y > 239) *calib_y = 239;
 }
 
-TS_GestureIdTypeDef getGestureID(TS_StateTypeDef* TS_State) {
-    static uint8_t x_start = 0, y_start = 0;
+TS_GestureIdTypeDef getGestureID(TS_StateTypeDef* TS_State, uint16_t* click_x, uint16_t* click_y) {
     static uint32_t gesture_start_time = 0;
+    static uint16_t x_start = 0, y_start = 0;
+    static uint16_t x_last = 0, y_last = 0;
 
-    if (TS_State->touchDetected) { // exti this
+    if (TS_State->touchDetected) {
+        x_last = TS_State->touchX[0];
+        y_last = TS_State->touchY[0];
+
         if (!is_tracking) {
             is_tracking = 1;
-            x_start = TS_State->touchX[0];
-            y_start = TS_State->touchY[0];
+            x_start = x_last;
+            y_start = y_last;
             gesture_start_time = HAL_GetTick();
         }
     }
@@ -49,20 +53,22 @@ TS_GestureIdTypeDef getGestureID(TS_StateTypeDef* TS_State) {
             uint32_t duration = HAL_GetTick() - gesture_start_time;
 
             if (duration <= SWIPE_MAX_TIME) {
-                int16_t delta_x = TS_State->touchX[0] - x_start;
-                int16_t delta_y = TS_State->touchY[0] - y_start;
+                int16_t delta_x = x_last - x_start;
+                int16_t delta_y = y_last - y_start;
                 int16_t abs_dx = (delta_x > 0) ? delta_x : -delta_x;
                 int16_t abs_dy = (delta_y > 0) ? delta_y : -delta_y;
 
-                if (abs_dx > abs_dy) {
-                    if (abs_dx >= SWIPE_THRESHOLD) {
-                        return (delta_x > 0) ? GEST_ID_MOVE_RIGHT : GEST_ID_MOVE_LEFT;
-                    }
+                if (abs_dx > abs_dy && abs_dx >= SWIPE_THRESHOLD) {
+                    return (delta_x > 0) ? GEST_ID_MOVE_RIGHT : GEST_ID_MOVE_LEFT;
                 }
-                else {
-                    if (abs_dy >= SWIPE_THRESHOLD) {
-                        return (delta_y > 0) ? GEST_ID_MOVE_DOWN : GEST_ID_MOVE_UP;
-                    }
+                else if (abs_dy > abs_dx && abs_dy >= SWIPE_THRESHOLD) {
+                    return (delta_y > 0) ? GEST_ID_MOVE_DOWN : GEST_ID_MOVE_UP;
+                }
+
+                else if (abs_dx < CLICK_THRESHOLD && abs_dy < CLICK_THRESHOLD) {
+                    *click_x = x_last;
+                    *click_y = y_last;
+                    return GEST_ID_CLICK;
                 }
             }
         }
