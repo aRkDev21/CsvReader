@@ -68,7 +68,6 @@ SRAM_HandleTypeDef hsram1;
 volatile JOYState_TypeDef StableJoyState = JOY_NONE;
 volatile uint8_t joy_flag = 0;
 volatile uint8_t ts_flag = 0;
-volatile JOYState_TypeDef CandidateJoyState = JOY_NONE;
 static TS_StateTypeDef TS_State = {0};
 
 /* USER CODE END PV */
@@ -673,30 +672,33 @@ static void MX_FSMC_Init(void)
 
 /* USER CODE BEGIN 4 */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
-  static int countMeasurements = 0;
-  static JOYState_TypeDef prevStableState = 0;
+  static int count = 0;
+  static JOYState_TypeDef newStableState = 0;
 
   JOYState_TypeDef current_state = BSP_JOY_GetState();
 
   if (htim->Instance == TIM6) {
-    if (CandidateJoyState == current_state) {
-      countMeasurements++;
-      if (countMeasurements == 10) {
-        if (StableJoyState != CandidateJoyState) {
-          StableJoyState = CandidateJoyState;
-          if (prevStableState == JOY_NONE && StableJoyState != JOY_NONE) {
-            joy_flag = 1;
-          }
-          prevStableState = StableJoyState;
-        }
-      }
+    if (newStableState == current_state) {
+      count++;
     }
     else {
-      CandidateJoyState = current_state;
-      countMeasurements = 0;
+      newStableState = current_state;
+      count = 0;
     };
+
+    uint8_t needed_ticks = (newStableState == JOY_NONE) ? 80 : 10; // 80 ms for release 10 ms for new state stable
+    if (count == needed_ticks) {
+      if (StableJoyState != newStableState) {
+        if (newStableState != JOY_NONE && StableJoyState == JOY_NONE) {
+          joy_flag = 1;
+        }
+        StableJoyState = newStableState;
+      }
+    }
   }
 }
+
+
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
   if (GPIO_Pin == CTP_INT_Pin) {
