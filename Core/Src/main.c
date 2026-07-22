@@ -254,6 +254,7 @@ int main(void)
 
         uint16_t click_x = 0, click_y = 0;
         uint8_t gest_id = getGestureID(&TS_State, &click_x, &click_y);
+        BSP_LCD_DrawEllipse(click_x, click_y, 10, 10);
 
         int old_s_row = start_row;
         int old_s_col = start_col;

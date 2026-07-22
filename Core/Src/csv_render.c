@@ -115,6 +115,7 @@ int get_max_col_len(Table* table, int start_row, int col, int start_col) {
     int remainder = extra % fit_count;
 
     int final_w = raw_w + stretch;
+    if (col_idx == fit_count-1) final_w += remainder;
 
     return final_w;
 }
@@ -135,7 +136,7 @@ uint8_t is_cell_visible(Table* table, int row, int col, int start_row, int start
     int x, y;
     find_cell_pos(table, row, col, &x, &y, start_row, start_col);
 
-    if (x >= 0 && x < 240 && y >= 0 && y < 240) return 1;
+    if (x >= 0 && x <= 240 && y >= 0 && y <= 240) return 1;
     
     return 0;
 }
@@ -397,11 +398,7 @@ int highlight_cell(Table* table, int new_row, int new_col, int start_row, int st
 }
 
 int get_clicked_row(int start_row, int y) {
-    if (y < OFFSET_LINE) {
-        return start_row + ((start_row == 0) ? -1 : 0);
-    }
-
-    return start_row + ((y-OFFSET_LINE) / OFFSET_LINE);
+    return start_row + ((start_row == 0) ? -1 : 0) + ((y-1) / OFFSET_LINE);
 }
 
 int get_clicked_col(Table *table, int start_col, int start_row, int x) {
