@@ -341,7 +341,6 @@ int main(void)
         }
 
         if (StableJoyState != JOY_NONE) {
-            if (new_row)
             update_viewport(new_row, new_col, &start_row, &start_col, table, &viewport_changed);
 
             if (viewport_changed) {
@@ -686,7 +685,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
       count = 0;
     };
 
-    uint8_t needed_ticks = (newStableState == JOY_NONE) ? 80 : 10; // 80 ms for release 10 ms for new state stable
+    uint8_t needed_ticks = (newStableState == JOY_NONE) ? 40 : 10; // 40 ms for release 10 ms for new state stable
     if (count == needed_ticks) {
       if (StableJoyState != newStableState) {
         if (newStableState != JOY_NONE && StableJoyState == JOY_NONE) {

@@ -25,9 +25,9 @@ void calibrate_coords(uint16_t *calib_x, uint16_t *calib_y) {
     *calib_y = ((int32_t)(*calib_y-y_top)*239)/(y_bot - y_top);
 
     if (*calib_x < 0)   *calib_x = 0;
-    if (*calib_x > 239) *calib_x = 239;
+    if (*calib_x > 239) *calib_x = 240;
     if (*calib_y < 0)   *calib_y = 0;
-    if (*calib_y > 239) *calib_y = 239;
+    if (*calib_y > 239) *calib_y = 240;
 }
 
 TS_GestureIdTypeDef getGestureID(TS_StateTypeDef* TS_State, uint16_t* click_x, uint16_t* click_y) {

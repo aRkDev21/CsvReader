@@ -354,7 +354,7 @@ int highlight_cell(Table* table, int new_row, int new_col, int start_row, int st
 
 int get_clicked_row(int start_row, int y) {
     if (y < OFFSET_LINE) {
-        return start_row - 1;
+        return start_row + ((start_row == 0) ? -1 : 0);
     }
 
     return start_row + ((y-OFFSET_LINE) / OFFSET_LINE);
