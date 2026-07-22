@@ -76,6 +76,7 @@ int get_max_col_len(Table* table, int start_row, int col) {
 
 int get_visible_width(Table* table, int s_row, int s_col, int col) {
     int total_w = 0;
+    if (s_col > col) total_w--;
     if (s_col == 0)
         total_w += get_max_col_len(table, s_row, -1) * LCD_DEFAULT_FONT.Width + FONT_SIZE;// row id width
 
@@ -89,11 +90,7 @@ uint8_t is_cell_visible(Table* table, int row, int col, int start_row, int start
     int x, y;
     find_cell_pos(table, row, col, &x, &y, start_row, start_col);
 
-    // Берем ширину и высоту ячейки
-    int w = get_max_col_len(table, start_row, col) * LCD_DEFAULT_FONT.Width + FONT_SIZE;
-    int h = OFFSET_LINE;
-
-    if ((x + w) > 0 && x < 240 && (y + h) > 0 && y < 240) return 1;
+    if (x >= 0 && x < 240 && y >= 0 && y < 240) return 1;
     
     return 0;
 }
@@ -236,15 +233,11 @@ void find_cell_pos(Table* t, int row, int col, int* x, int* y, int start_row, in
     else {
         *y = (row - start_row) * OFFSET_LINE + ( (start_row == 0) ? OFFSET_LINE : 0 );
     }
-
-    int id_w = get_max_col_len(t, start_row, -1) * LCD_DEFAULT_FONT.Width + FONT_SIZE;
-
     if (col == -1) {
-        *x = ((start_col == 0) ? 0 : -id_w);
+        *x = 0;
     }
     else {
         *x = get_visible_width(t, start_row, start_col, col);
-        if (start_col > 0) *x -= id_w;
     }
 }
 
@@ -255,7 +248,6 @@ int draw_cell(Table* table, int row, int col, int *curX, int *curY, int start_ro
     cell_h = OFFSET_LINE;
     cell_w = get_max_col_len(table, start_row, col) * LCD_DEFAULT_FONT.Width + FONT_SIZE;
     if (*curX + cell_w >= SCREEN_WIDTH) cell_w = SCREEN_WIDTH - *curX;
-    int copyX = *curX;
     *curX = (*curX < 0) ? 0 : *curX;
     BSP_LCD_SetTextColor(color);
     BSP_LCD_SetBackColor(color);
@@ -293,7 +285,6 @@ int draw_cell(Table* table, int row, int col, int *curX, int *curY, int start_ro
         if (textX <= *curX) textX = *curX;
         draw_cell_value(cell, &textX, &textY);
     }
-    *curX = copyX;
     return 1;
 }
 

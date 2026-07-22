@@ -309,7 +309,7 @@ int main(void)
         switch (StableJoyState) {
           case JOY_UP:
               if (new_row - start_row >= -1) {
-                if (new_row == 0 && new_col == -1) break;
+                if ((new_row == 0 && new_col == -1) || new_row == -1) break;
                 new_row--;
               }
               break;
@@ -320,7 +320,7 @@ int main(void)
               break;     
           case JOY_LEFT:
               if (new_col - start_col >= -1) {
-                if (new_col == 0 && new_row == -1) break;
+                if ((new_col == 0 && new_row == -1) || new_col == -1) break;
                   new_col--;
               }
               break;
@@ -342,6 +342,7 @@ int main(void)
         }
 
         if (StableJoyState != JOY_NONE) {
+            if (new_row)
             update_viewport(new_row, new_col, &start_row, &start_col, table, &viewport_changed);
 
             if (viewport_changed) {
@@ -673,20 +674,21 @@ static void MX_FSMC_Init(void)
 /* USER CODE BEGIN 4 */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
   static int countMeasurements = 0;
+  static JOYState_TypeDef prevStableState = 0;
+
   JOYState_TypeDef current_state = BSP_JOY_GetState();
+
   if (htim->Instance == TIM6) {
     if (CandidateJoyState == current_state) {
       countMeasurements++;
       if (countMeasurements == 10) {
         if (StableJoyState != CandidateJoyState) {
           StableJoyState = CandidateJoyState;
-          // CandidateJoyState = JOY_NONE;
-          if (StableJoyState != JOY_NONE)
+          if (prevStableState == JOY_NONE && StableJoyState != JOY_NONE) {
             joy_flag = 1;
+          }
+          prevStableState = StableJoyState;
         }
-        // else {
-        //   countMeasurements = 0;
-        // }
       }
     }
     else {
