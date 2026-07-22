@@ -60,7 +60,7 @@ int get_size_cell(Cell* cell) {
     return size;
 }
 
-int get_max_col_len(Table* table, int start_row, int col) {
+int get_raw_col_width(Table* table, int start_row, int col) {
     int mx = 0;
     int cur = 0;
     if (start_row == 0 && col >= 0) {
@@ -71,17 +71,62 @@ int get_max_col_len(Table* table, int start_row, int col) {
         if (mx < cur) mx = cur;
     }
 
-    return mx;
+    return mx * LCD_DEFAULT_FONT.Width + FONT_SIZE;
+}
+
+int get_max_col_len(Table* table, int start_row, int col, int start_col) {
+    int total_w = 0;
+    int fit_count = 0;
+    int c_start = (start_col == 0) ? -1 : start_col;
+    for (int i = c_start; i < table->col_count; i++) {
+        int w = get_raw_col_width(table, start_row, i);
+        if (total_w + w > SCREEN_WIDTH) {
+            if (fit_count == 0) {
+                fit_count++;
+                total_w += w;
+            }
+            break;
+        }
+
+        fit_count++;
+        total_w += w;
+    }
+
+    int raw_w = get_raw_col_width(table, start_row, col);
+
+    int col_idx = -1;
+    int curr = 0;
+    for (int i = c_start; i < table->col_count; i++) {
+        if (i == col) {
+            col_idx = curr;
+            break;
+        }
+        curr++;
+    }
+
+    if (col_idx == -1 || col_idx >= fit_count) {
+        return raw_w;
+    }
+
+    int extra = SCREEN_WIDTH - total_w;
+    if (extra < 0) extra = 0;
+
+    int stretch = extra / fit_count;
+    int remainder = extra % fit_count;
+
+    int final_w = raw_w + stretch;
+
+    return final_w;
 }
 
 int get_visible_width(Table* table, int s_row, int s_col, int col) {
     int total_w = 0;
     if (s_col > col) total_w--;
     if (s_col == 0)
-        total_w += get_max_col_len(table, s_row, -1) * LCD_DEFAULT_FONT.Width + FONT_SIZE;// row id width
+        total_w += get_max_col_len(table, s_row, -1, s_col);// row id width
 
     for (int j = s_col; j < col; j++) {
-        total_w += get_max_col_len(table, s_row, j) * LCD_DEFAULT_FONT.Width + FONT_SIZE;
+        total_w += get_max_col_len(table, s_row, j, s_col);
     }
     return total_w;
 }
@@ -100,7 +145,7 @@ uint8_t can_scroll_right(Table* table, int start_row, int start_col) {
 
     int last_col = table->col_count - 1;
     int last_col_x = get_visible_width(table, start_row, start_col, last_col);
-    int last_col_w = get_max_col_len(table, start_row, last_col) * LCD_DEFAULT_FONT.Width + FONT_SIZE;
+    int last_col_w = get_max_col_len(table, start_row, last_col, start_col);
     
     return (last_col_x + last_col_w > SCREEN_WIDTH) ? 1 : 0;
 }
@@ -143,11 +188,11 @@ void update_viewport(int selected_row, int selected_col, int* start_row, int* st
     // if we cant display the selected column
         int x = 0, y = 0;
         find_cell_pos(table, selected_row, selected_col, &x, &y, *start_row, *start_col);
-        x += get_max_col_len(table, *start_row, selected_col) * LCD_DEFAULT_FONT.Width + FONT_SIZE;
-        while (x >= SCREEN_WIDTH) {
+        x += get_max_col_len(table, *start_row, selected_col, *start_col);
+        while (x > SCREEN_WIDTH) {
             (*start_col)++;
             find_cell_pos(table, selected_row, selected_col, &x, &y, *start_row, *start_col);
-            x += get_max_col_len(table, *start_row, selected_col) * LCD_DEFAULT_FONT.Width + FONT_SIZE;
+            x += get_max_col_len(table, *start_row, selected_col, *start_col);
             *viewport_changed = 1;
         }  
     }
@@ -158,7 +203,7 @@ void update_viewport(int selected_row, int selected_col, int* start_row, int* st
 
         int x = 0, y = 0;
         find_cell_pos(table, selected_row, selected_col, &x, &y, *start_row, next_start_col);
-        int cell_w = get_max_col_len(table, *start_row, selected_col) * LCD_DEFAULT_FONT.Width + FONT_SIZE;
+        int cell_w = get_max_col_len(table, *start_row, selected_col, *start_col);
         
         if (x + cell_w <= SCREEN_WIDTH) {
             *start_col = next_start_col;
@@ -233,7 +278,7 @@ void find_cell_pos(Table* t, int row, int col, int* x, int* y, int start_row, in
     else {
         *y = (row - start_row) * OFFSET_LINE + ( (start_row == 0) ? OFFSET_LINE : 0 );
     }
-    if (col == -1) {
+    if (col == -1 && start_col == 0) {
         *x = 0;
     }
     else {
@@ -246,13 +291,13 @@ int draw_cell(Table* table, int row, int col, int *curX, int *curY, int start_ro
     if (*curY >= SCREEN_HEIGHT || *curX >= SCREEN_WIDTH) return 0;
     int cell_w, cell_h;
     cell_h = OFFSET_LINE;
-    cell_w = get_max_col_len(table, start_row, col) * LCD_DEFAULT_FONT.Width + FONT_SIZE;
+    cell_w = get_max_col_len(table, start_row, col, start_col);
     if (*curX + cell_w >= SCREEN_WIDTH) cell_w = SCREEN_WIDTH - *curX;
     *curX = (*curX < 0) ? 0 : *curX;
     BSP_LCD_SetTextColor(color);
     BSP_LCD_SetBackColor(color);
     if (row == -1 && col == 0 && 0) {
-        // cell_w = get_max_col_len(table, start_row, -1) * LCD_DEFAULT_FONT.Width;
+        // cell_w = get_raw_col_width(table, start_row, -1) * LCD_DEFAULT_FONT.Width;
         // BSP_LCD_FillRect(0, *curY, cell_w, cell_h);
     }
     else {
@@ -318,7 +363,6 @@ void render_table_to_lcd(Table* table, int start_row, int start_col) {
             if (!draw_cell(table, i, j, &curX, &curY, start_row, start_col, bg_color)) {
                 break;
             }
-            //curX += LCD_DEFAULT_FONT.Width;
         }
         curY += OFFSET_LINE;
         curX = 0;
@@ -361,12 +405,12 @@ int get_clicked_row(int start_row, int y) {
 }
 
 int get_clicked_col(Table *table, int start_col, int start_row, int x) {
-    int curX = ((start_col == 0) ? get_max_col_len(table, start_row, -1) * LCD_DEFAULT_FONT.Width + FONT_SIZE : 0);
+    int curX = ((start_col == 0) ? get_max_col_len(table, start_row, -1, start_col) : 0);
     if (start_col == 0 && x < curX) {
         return -1;
     }
     for (int col = start_col; col < table->col_count; col++) {
-        int col_w = get_max_col_len(table, start_row, col) * LCD_DEFAULT_FONT.Width + FONT_SIZE;
+        int col_w = get_max_col_len(table, start_row, col, start_col);
         if (x >= curX && x < (curX + col_w)) {
             return col;
         }

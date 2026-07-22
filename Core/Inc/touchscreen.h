@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 #define SWIPE_MAX_TIME 500
-#define SWIPE_THRESHOLD 25
+#define SWIPE_THRESHOLD 15
 #define CLICK_THRESHOLD 5
 
 #define GEST_ID_CLICK 0x99
