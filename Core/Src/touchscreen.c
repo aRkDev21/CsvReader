@@ -4,29 +4,32 @@
 #include <stdint.h>
 
 uint8_t is_tracking = 0;
-
 void calibrate_coords(uint16_t *calib_x, uint16_t *calib_y) {
-    const int16_t x1 = 10, y1 = 40, // top left
-                x2 = 235, y2 = 30, // top right
-                x3 = 6, y3 = 205, // bot left
-                x4 = 235, y4 = 180; // bot right
+    const int16_t x1 = 10,  y1 = 40;  // top left
+    const int16_t x2 = 235, y2 = 30;  // top right
+    const int16_t x3 = 6,   y3 = 205; // bot left
+    const int16_t x4 = 235, y4 = 180; // bot right
 
-    int16_t x_left = x1 + ( (*calib_y-y1)*(x3-x1) )/(y3-y1);
-    int16_t x_right = x2 + ( (*calib_y-y2)*(x4-x2) )/(y4-y2);
-    
+    int32_t raw_x = *calib_x;
+    int32_t raw_y = *calib_y;
+
+    int32_t x_left  = x1 + ((raw_y - y1) * (x3 - x1)) / (y3 - y1);
+    int32_t x_right = x2 + ((raw_y - y2) * (x4 - x2)) / (y4 - y2);
     if (x_right == x_left) x_right++;
-    *calib_x = ((int32_t)(*calib_x-x_left)*239)/(x_right - x_left);
+    int32_t new_x = ((raw_x - x_left) * 239) / (x_right - x_left);
 
-    int16_t y_top = y1 + ((*calib_x-x1)*(y2-y1))/(x2-x1);
-    int16_t y_bot = y3 + ((*calib_x-x3)*(y4-y3))/(x4-x3);
-
+    int32_t y_top = y1 + ((raw_x - x1) * (y2 - y1)) / (x2 - x1);
+    int32_t y_bot = y3 + ((raw_x - x3) * (y4 - y3)) / (x4 - x3);
     if (y_bot == y_top) y_bot++;
-    *calib_y = ((int32_t)(*calib_y-y_top)*239)/(y_bot - y_top);
+    int32_t new_y = ((raw_y - y_top) * 239) / (y_bot - y_top);
 
-    if (*calib_x < 0)   *calib_x = 0;
-    if (*calib_x > 239) *calib_x = 240;
-    if (*calib_y < 0)   *calib_y = 0;
-    if (*calib_y > 239) *calib_y = 240;
+    if (new_x < 0)   new_x = 0;
+    if (new_x > 239) new_x = 239;
+    if (new_y < 0)   new_y = 0;
+    if (new_y > 239) new_y = 239;
+
+    *calib_x = (uint16_t)new_x;
+    *calib_y = (uint16_t)new_y;
 }
 
 TS_GestureIdTypeDef getGestureID(TS_StateTypeDef* TS_State, uint16_t* click_x, uint16_t* click_y) {
