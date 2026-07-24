@@ -31,10 +31,6 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include <stdbool.h>
-#include "csv.h"
-#include "csv_render.h"
-#include "stm32412g_discovery_ts.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/

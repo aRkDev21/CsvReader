@@ -18,11 +18,25 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "bsp_driver_sd.h"
 #include "fatfs.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "touchscreen.h"
+#include "csv.h"
+#include "csv_render.h"
+#include "stm32412g_discovery.h"
+#include "stm32412g_discovery_lcd.h"
+#include "stm32f412zx.h"
+#include "stm32f4xx_hal.h"
+#include "stm32f4xx_hal_cortex.h"
+#include "stm32f4xx_hal_gpio.h"
+#include "stm32f4xx_hal_rcc_ex.h"
+#include "stm32f4xx_hal_tim.h"
+#include "stm32412g_discovery_ts.h"
+#include <stdint.h>
+#include <stdio.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -237,6 +251,11 @@ int main(void)
       }
     }
     else if (cur_state == STATE_TABLE) {
+      if (BSP_SD_Init() != MSD_OK) {
+        display_error("SD card not initializied!!");
+        HAL_Delay(1000);
+        Error_Handler();
+      }
       if (ts_flag || is_tracking) 
       {
         ts_flag = 0;
@@ -246,7 +265,7 @@ int main(void)
 
         uint16_t click_x = 0, click_y = 0;
         uint8_t gest_id = getGestureID(&TS_State, &click_x, &click_y);
-        BSP_LCD_DrawEllipse(click_x, click_y, 10, 10);
+        // BSP_LCD_DrawEllipse(click_x, click_y, 10, 10);
 
         int old_s_row = start_row;
         int old_s_col = start_col;
@@ -359,8 +378,8 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
   /* USER CODE END 3 */
+  }
 }
-
 /**
   * @brief System Clock Configuration
   * @retval None
@@ -462,7 +481,7 @@ static void MX_SDIO_SD_Init(void)
   hsd.Init.ClockPowerSave = SDIO_CLOCK_POWER_SAVE_DISABLE;
   hsd.Init.BusWide = SDIO_BUS_WIDE_1B;
   hsd.Init.HardwareFlowControl = SDIO_HARDWARE_FLOW_CONTROL_DISABLE;
-  hsd.Init.ClockDiv = 0;
+  hsd.Init.ClockDiv = 118;
   /* USER CODE BEGIN SDIO_Init 2 */
 
   /* USER CODE END SDIO_Init 2 */
