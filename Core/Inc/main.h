@@ -130,6 +130,8 @@ void Error_Handler(void);
 #define D2_GPIO_Port GPIOD
 #define D3_Pin GPIO_PIN_1
 #define D3_GPIO_Port GPIOD
+#define uSD_Detect_Pin GPIO_PIN_3
+#define uSD_Detect_GPIO_Port GPIOD
 #define FMC_NOE_Pin GPIO_PIN_4
 #define FMC_NOE_GPIO_Port GPIOD
 #define FMC_NWE_Pin GPIO_PIN_5
