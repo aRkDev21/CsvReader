@@ -60,6 +60,7 @@ int get_size_cell(Cell* cell) {
     return size;
 }
 
+// add cached int* table->col_widths
 int get_raw_col_width(Table* table, int start_row, int col) {
     int mx = 0;
     int cur = 0;

@@ -116,18 +116,18 @@ const char* csv_data[] = {
                       "30,1,1,6,,0,13\n"
                       "3210900,0,=B2*0,5,1,-5,-120\n", 
                     
-                  ",A,B,C,VeryLongHeaderNameTooLongFloat,NextColumn\n"
-                      "1,0,0,1,12,\n"
-                      "2,2,=A1+C30,0,3,1\n"
-                      "30,0,=6/B1,5,6,-2\n"
-                      "32,1,15,6,,0\n"
-                      "35,-45,22,0,=B2,0\n"
-                      "39,7,,,,\n"
-                      "42,3,2005,6,8,-1\n"
-                      "52,11,25,6,,9\n"
-                      "72,1,1,1,,0\n"
-                      "30,1,1,6,,0\n"
-                      "3210900,0,=B2*0,5,1,-5\n", 
+                  ",A\n"
+                      "1,3\n"
+                      "2,2,\n"
+                      "30,0,\n"
+                      "32,1\n"
+                      "35,-45\n"
+                      "39,7\n"
+                      "42,3\n"
+                      "52,11\n"
+                      "72,1\n"
+                      "30,1\n"
+                      "3210900,0\n", 
                     };
 /* USER CODE END 0 */
 
@@ -251,11 +251,11 @@ int main(void)
       }
     }
     else if (cur_state == STATE_TABLE) {
-      if (BSP_SD_Init() != MSD_OK) {
-        display_error("SD card not initializied!!");
-        HAL_Delay(1000);
-        Error_Handler();
-      }
+      // if (BSP_SD_Init() != MSD_OK) {
+      //   display_error("SD card not initializied!!");
+      //   HAL_Delay(1000);
+      //   Error_Handler();
+      // }
       if (ts_flag || is_tracking) 
       {
         ts_flag = 0;
@@ -345,7 +345,7 @@ int main(void)
               free_table(table);
               table = NULL;
               display_main_menu(total_tables, selected_table);
-              StableJoyState = JOY_NONE;
+              StableJoyState = JOY_NONE; // disable irq ?
               cur_state = STATE_MENU;
               break;
           default:
@@ -481,7 +481,7 @@ static void MX_SDIO_SD_Init(void)
   hsd.Init.ClockPowerSave = SDIO_CLOCK_POWER_SAVE_DISABLE;
   hsd.Init.BusWide = SDIO_BUS_WIDE_1B;
   hsd.Init.HardwareFlowControl = SDIO_HARDWARE_FLOW_CONTROL_DISABLE;
-  hsd.Init.ClockDiv = 118;
+  hsd.Init.ClockDiv = 0;
   /* USER CODE BEGIN SDIO_Init 2 */
 
   /* USER CODE END SDIO_Init 2 */
