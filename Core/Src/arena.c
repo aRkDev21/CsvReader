@@ -1,6 +1,8 @@
 #include "arena.h"
+#include <stddef.h>
 #include <string.h>
 
+MemoryArena table_arena;
 void* arena_alloc(MemoryArena* arena, size_t size) {
     size_t alligned_size = (size + 3) & ((size_t)~3);
 
@@ -13,7 +15,7 @@ void* arena_alloc(MemoryArena* arena, size_t size) {
 }
 
 char* arena_strdup(MemoryArena* arena, char* str) {
-    size_t len = strlen(str) + 1;
+    size_t len = (size_t) strlen(str) + 1;
     char* dst = (char*)arena_alloc(arena, len);
     if (dst) {
         strncpy(dst, str, len);

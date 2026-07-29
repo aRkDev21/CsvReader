@@ -13,6 +13,7 @@ typedef struct {
 
 } MemoryArena;
 
+extern MemoryArena table_arena;
 void* arena_alloc(MemoryArena* arena, size_t size);
 char* arena_strdup(MemoryArena* arena, char* str);
 void reset_arena(MemoryArena* arena);

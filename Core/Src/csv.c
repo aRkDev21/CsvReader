@@ -6,8 +6,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-MemoryArena table_arena;
-
 int digit_count(int v){
     int8_t is_neg = (v<0) ? 1 : 0;
 	v = (v>0) ? v:-v;

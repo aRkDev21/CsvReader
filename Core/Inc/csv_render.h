@@ -27,9 +27,12 @@ void render_table_to_lcd(Table*, int, int);
 void update_viewport(int selected_row, int selected_col, int* start_row, int* start_col, Table* table, volatile uint8_t* viewport_changed);
 int highlight_cell(Table* table, int new_row, int new_col, int start_row, int start_col);
 int unhighlight_cell(Table* table, int prev_row, int prev_col, int start_row, int start_col);
+int draw_cell(Table* table, int row, int col, int *curX, int *curY, int start_row, int start_col, uint16_t color, uint8_t clear);
+int get_max_col_len(Table* table, int start_row, int col, int start_col);
 
 uint8_t can_scroll_right(Table* table, int start_row, int start_col);
 uint8_t can_scroll_down(Table* table, int start_row);
 uint8_t is_cell_visible(Table* table, int row, int col, int s_row, int s_col);
+int clear_cell(Table* table, int row, int col, int start_row, int start_col, uint16_t color);
 
 #endif /* CSV_RENDER_H */

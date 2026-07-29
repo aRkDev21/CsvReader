@@ -288,7 +288,7 @@ void find_cell_pos(Table* t, int row, int col, int* x, int* y, int start_row, in
     }
 }
 
-int draw_cell(Table* table, int row, int col, int *curX, int *curY, int start_row, int start_col, uint16_t color) {
+int draw_cell(Table* table, int row, int col, int *curX, int *curY, int start_row, int start_col, uint16_t color, uint8_t clear) {
     find_cell_pos(table, row, col , curX, curY, start_row, start_col);
     if (*curY >= SCREEN_HEIGHT || *curX >= SCREEN_WIDTH) return 0;
     int cell_w, cell_h;
@@ -298,15 +298,12 @@ int draw_cell(Table* table, int row, int col, int *curX, int *curY, int start_ro
     *curX = (*curX < 0) ? 0 : *curX;
     BSP_LCD_SetTextColor(color);
     BSP_LCD_SetBackColor(color);
-    if (row == -1 && col == 0 && 0) {
-        // cell_w = get_raw_col_width(table, start_row, -1) * LCD_DEFAULT_FONT.Width;
-        // BSP_LCD_FillRect(0, *curY, cell_w, cell_h);
-    }
-    else {
-        BSP_LCD_FillRect(*curX, *curY, cell_w, cell_h);
-    }
+
+    BSP_LCD_FillRect(*curX, *curY, cell_w, cell_h);
+
 
     BSP_LCD_SetTextColor(LCD_COLOR_DARKBLUE);
+    if (clear) return 1;
 
     int textX = *curX;
     int textY = *curY + (FONT_SIZE)/2;
@@ -345,7 +342,7 @@ void render_table_to_lcd(Table* table, int start_row, int start_col) {
     if (start_row == 0) { 
         for (int i = start_col; i < table->col_count; i++) {
             bg_color = get_cell_color(-1, i);
-            if (!draw_cell(table, -1, i, &curX, &curY, start_row, start_col, bg_color)) {
+            if (!draw_cell(table, -1, i, &curX, &curY, start_row, start_col, bg_color, 0)) {
                 break;
             }
         }
@@ -358,11 +355,11 @@ void render_table_to_lcd(Table* table, int start_row, int start_col) {
         bg_color = get_cell_color(i, -1);
         // print row id
         if (start_col == 0){
-            draw_cell(table, i, -1, &curX, &curY, start_row, start_col, bg_color);
+            draw_cell(table, i, -1, &curX, &curY, start_row, start_col, bg_color, 0);
         }
         for (int j = start_col; j < table->col_count; j++) {
             bg_color = get_cell_color(i, j);
-            if (!draw_cell(table, i, j, &curX, &curY, start_row, start_col, bg_color)) {
+            if (!draw_cell(table, i, j, &curX, &curY, start_row, start_col, bg_color, 0)) {
                 break;
             }
         }
@@ -388,14 +385,14 @@ int unhighlight_cell(Table* table, int cur_row, int cur_col, int start_row, int 
     // remove highlight from the previous cell
     if (!is_cell_visible(table, cur_row, cur_col, start_row, start_col)) return 0;
     int curX = 0, curY = 0;
-    return draw_cell(table, cur_row, cur_col, &curX, &curY, start_row, start_col, get_cell_color(cur_row, cur_col));
+    return draw_cell(table, cur_row, cur_col, &curX, &curY, start_row, start_col, get_cell_color(cur_row, cur_col), 0);
 }
 
 int highlight_cell(Table* table, int new_row, int new_col, int start_row, int start_col) {
     // highlight the new cell
     if (!is_cell_visible(table, new_row, new_col, start_row, start_col)) return 0;
     int curX = 0, curY = 0;
-    return draw_cell(table, new_row, new_col, &curX, &curY, start_row, start_col, LCD_COLOR_DARKGRAY);
+    return draw_cell(table, new_row, new_col, &curX, &curY, start_row, start_col, LCD_COLOR_DARKGRAY, 0);
 }
 
 int get_clicked_row(int start_row, int y) {
@@ -418,4 +415,10 @@ int get_clicked_col(Table *table, int start_col, int start_row, int x) {
     }
 
    return -2;
+}
+
+int clear_cell(Table* table, int row, int col, int start_row, int start_col, uint16_t color) {
+    if (!is_cell_visible(table, row, col, start_row, start_col)) return 0;
+    int curX = 0, curY = 0;
+    return draw_cell(table, row, col, &curX, &curY, start_row, start_col, color, 1);
 }

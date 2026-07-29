@@ -18,11 +18,12 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "bsp_driver_sd.h"
+#include "arena.h"
 #include "fatfs.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "stm32f4xx_hal_uart.h"
 #include "touchscreen.h"
 #include "csv.h"
 #include "csv_render.h"
@@ -37,6 +38,7 @@
 #include "stm32412g_discovery_ts.h"
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -72,7 +74,8 @@ volatile JOYState_TypeDef StableJoyState = JOY_NONE;
 volatile uint8_t joy_flag = 0;
 volatile uint8_t ts_flag = 0;
 static TS_StateTypeDef TS_State = {0};
-
+uint8_t uart_rx_byte;
+volatile uint8_t newChar_flag = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -200,6 +203,10 @@ int main(void)
 
   display_main_menu(total_tables, selected_table);
 
+  HAL_UART_Receive_IT(&huart2, &uart_rx_byte, 1);
+  char buff[MAX_LEN_LINE];
+  int cnt = 0;
+  Cell* active_cell = NULL;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -370,7 +377,71 @@ int main(void)
 
             }
           
-        } 
+        }  
+      }
+
+      if (newChar_flag) {
+
+        int dummyX = 0, dummyY = 0;
+        find_cell_pos(table, new_row, new_col, &dummyX, &dummyY, start_row, start_col);
+        dummyY += LCD_DEFAULT_FONT.Height / 2;
+        Cell* cell = &table->grid[new_row  * table->col_count + new_col];
+
+        if (cell != active_cell) {
+          active_cell = cell;
+          if (cell->raw_data != NULL) {
+            cnt = strlen(cell->raw_data);
+            strncpy(buff, cell->raw_data, cnt);
+          }
+          else {
+            cnt = 0;
+          }
+          
+          buff[cnt] = '\0';
+          clear_cell(table, new_row, new_col, start_row, start_col, LCD_COLOR_DARKGRAY);
+        }
+
+        if (uart_rx_byte == '\n' || uart_rx_byte == '\r') {
+          buff[cnt] = '\0';
+          if (new_row == -1) {}
+          else if (new_col == -1) {}
+          else {
+            cell->raw_data = arena_strdup(&table_arena, buff);
+            cell->state = RAW;
+            evaluate_all(table);
+            highlight_cell(table, new_row, new_col, start_row, start_col);
+          }
+          cnt = 0;
+          buff[cnt] = '\0';
+          active_cell = NULL;
+        }
+
+        else {
+          if (cnt < MAX_LEN_FIELD) {
+            if (uart_rx_byte == '\b' && cnt > 0) {
+              buff[--cnt] = '\0';
+              BSP_LCD_DisplayChar(dummyX+cnt*LCD_DEFAULT_FONT.Width, dummyY, ' ');
+            }
+            else if (uart_rx_byte != '\b') {
+              buff[cnt++] = uart_rx_byte;
+              buff[cnt] = '\0';
+            }
+            // draw rectangle
+            int cell_w = get_max_col_len(table, start_row, new_col, start_col);
+            // + FONT_SIZE
+            if (cell_w < (cnt+1) * LCD_DEFAULT_FONT.Width + LCD_DEFAULT_FONT.Height) cell_w = (cnt+1) * LCD_DEFAULT_FONT.Width + LCD_DEFAULT_FONT.Height;
+            if (dummyX + cell_w >= 240) cell_w = 240 - dummyX; // >= SCREEN_WIDTH
+
+            BSP_LCD_SetTextColor(LCD_COLOR_DARKGRAY);
+            BSP_LCD_FillRect(dummyX, dummyY-LCD_DEFAULT_FONT.Height / 2, cell_w, 24); // cell_h = OFFSET_LINE
+            BSP_LCD_SetTextColor(LCD_COLOR_DARKBLUE);
+            BSP_LCD_DisplayStringAt(dummyX, dummyY, (uint8_t*) buff, 0);
+          }
+
+          BSP_LCD_DisplayChar(dummyX+(cnt)*LCD_DEFAULT_FONT.Width, dummyY, '_');
+        }
+
+        newChar_flag = 0;
       }
     }
 
@@ -636,8 +707,8 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin : CTP_INT_Pin */
   GPIO_InitStruct.Pin = CTP_INT_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
-  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(CTP_INT_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : uSD_Detect_Pin */
@@ -745,6 +816,13 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
   if (GPIO_Pin == CTP_INT_Pin) {
     ts_flag = 1;
+  }
+}
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+  if (huart->Instance == USART2) {
+      newChar_flag = 1;
+      HAL_UART_Receive_IT(&huart2, &uart_rx_byte, 1);
   }
 }
 /* USER CODE END 4 */
