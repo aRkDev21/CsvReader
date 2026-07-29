@@ -206,7 +206,9 @@ int main(void)
   HAL_UART_Receive_IT(&huart2, &uart_rx_byte, 1);
   char buff[MAX_LEN_LINE];
   int cnt = 0;
-  Cell* active_cell = NULL;
+  int edit_row = -2;
+  int edit_col = -2;
+  uint8_t need_rendering = 0;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -304,6 +306,7 @@ int main(void)
                 
                 new_row = clicked_row;
                 new_col = clicked_col;
+                close_edit_mode(table, &edit_row, &edit_col, start_row, start_col, viewport_changed, &need_rendering);
 
                 highlight_cell(table, new_row, new_col, start_row, start_col);
               }
@@ -360,6 +363,7 @@ int main(void)
         }
 
         if (StableJoyState != JOY_NONE) {
+            close_edit_mode(table, &edit_row, &edit_col, start_row, start_col, viewport_changed, &need_rendering);
             update_viewport(new_row, new_col, &start_row, &start_col, table, &viewport_changed);
 
             if (viewport_changed) {
@@ -387,8 +391,9 @@ int main(void)
         dummyY += LCD_DEFAULT_FONT.Height / 2;
         Cell* cell = &table->grid[new_row  * table->col_count + new_col];
 
-        if (cell != active_cell) {
-          active_cell = cell;
+        if (edit_col != new_col || edit_row != new_row) {
+          edit_col = new_col;
+          edit_row = new_row;
           if (cell->raw_data != NULL) {
             cnt = strlen(cell->raw_data);
             strncpy(buff, cell->raw_data, cnt);
@@ -406,14 +411,21 @@ int main(void)
           if (new_row == -1) {}
           else if (new_col == -1) {}
           else {
+            int old_max_col_w = get_max_col_len(table,  start_row, new_col, start_col);
             cell->raw_data = arena_strdup(&table_arena, buff);
             cell->state = RAW;
             evaluate_all(table);
+            if (old_max_col_w != get_max_col_len(table,  start_row, new_col, start_col) || need_rendering) {
+              update_viewport(new_row, new_col, &start_row, &start_col, table, &viewport_changed);
+              render_table_to_lcd(table, start_row, start_col);
+              need_rendering = 0;
+            }
             highlight_cell(table, new_row, new_col, start_row, start_col);
           }
           cnt = 0;
           buff[cnt] = '\0';
-          active_cell = NULL;
+          edit_row = -2;
+          edit_col = -2;
         }
 
         else {
@@ -429,7 +441,10 @@ int main(void)
             // draw rectangle
             int cell_w = get_max_col_len(table, start_row, new_col, start_col);
             // + FONT_SIZE
-            if (cell_w < (cnt+1) * LCD_DEFAULT_FONT.Width + LCD_DEFAULT_FONT.Height) cell_w = (cnt+1) * LCD_DEFAULT_FONT.Width + LCD_DEFAULT_FONT.Height;
+            if (cell_w < (cnt+1) * LCD_DEFAULT_FONT.Width + LCD_DEFAULT_FONT.Height) {
+              cell_w = (cnt+1) * LCD_DEFAULT_FONT.Width + LCD_DEFAULT_FONT.Height;
+              need_rendering = 1;
+            }
             if (dummyX + cell_w >= 240) cell_w = 240 - dummyX; // >= SCREEN_WIDTH
 
             BSP_LCD_SetTextColor(LCD_COLOR_DARKGRAY);

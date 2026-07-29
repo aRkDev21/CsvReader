@@ -25,6 +25,7 @@ typedef struct {
     int* row_ids;
     int col_count;
     int row_count;
+    int* col_widths;
 } Table;
 
 int digit_count(int);

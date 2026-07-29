@@ -422,3 +422,14 @@ int clear_cell(Table* table, int row, int col, int start_row, int start_col, uin
     int curX = 0, curY = 0;
     return draw_cell(table, row, col, &curX, &curY, start_row, start_col, color, 1);
 }
+
+void close_edit_mode(Table* table, int *row, int *col, int start_row, int start_col, volatile uint8_t viewport_changed, uint8_t *need_rendering) {
+    if (*need_rendering) {
+        update_viewport(*row, *col, &start_row, &start_col, table, &viewport_changed);
+        render_table_to_lcd(table, start_row, start_col);
+        *need_rendering = 0;
+    }
+    else {
+        unhighlight_cell(table, *row, *col, start_row, start_col); 
+    }
+}
