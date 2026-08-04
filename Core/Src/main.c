@@ -48,7 +48,8 @@
 /* USER CODE BEGIN PTD */
 typedef enum {
     STATE_MENU,
-    STATE_TABLE
+    STATE_TABLE,
+    STATE_FS_BROWSER
 } AppState;
 /* USER CODE END PTD */
 

@@ -52,6 +52,8 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Core/Src/sysmem.c
     Core/Src/csv.c
     Core/Src/csv_render.c
+    Core/Src/fs_browser.c
+    Core/Src/fs_render.c
     Core/Src/eval.c
     Core/Src/arena.c
     Core/Src/touchscreen.c
