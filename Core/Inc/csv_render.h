@@ -35,5 +35,6 @@ uint8_t can_scroll_down(Table* table, int start_row);
 uint8_t is_cell_visible(Table* table, int row, int col, int s_row, int s_col);
 int clear_cell(Table* table, int row, int col, int start_row, int start_col, uint16_t color);
 void close_edit_mode(Table* table, int *row, int *col, int start_row, int start_col, volatile uint8_t viewport_changed, uint8_t *need_rendering);
+uint16_t get_cell_color(int row, int col);
 
 #endif /* CSV_RENDER_H */

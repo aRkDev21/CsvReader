@@ -18,6 +18,8 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "arena.h"
+#include "csv_render.h"
 #include "fatfs.h"
 #include "usb_host.h"
 
@@ -36,6 +38,7 @@
 #include "stm32f4xx_hal_rcc_ex.h"
 #include "stm32f4xx_hal_tim.h"
 #include "stm32412g_discovery_ts.h"
+#include "usbh_hid.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -310,6 +313,8 @@ int main(void)
                 new_row = clicked_row;
                 new_col = clicked_col;
                 close_edit_mode(table, &edit_row, &edit_col, start_row, start_col, viewport_changed, &need_rendering);
+                cnt = 0;
+                buff[cnt] = '\0';
 
                 highlight_cell(table, new_row, new_col, start_row, start_col);
               }
@@ -367,6 +372,8 @@ int main(void)
 
         if (StableJoyState != JOY_NONE) {
             close_edit_mode(table, &edit_row, &edit_col, start_row, start_col, viewport_changed, &need_rendering);
+            cnt = 0;
+            buff[cnt] = '\0';
             update_viewport(new_row, new_col, &start_row, &start_col, table, &viewport_changed);
 
             if (viewport_changed) {
@@ -394,7 +401,7 @@ int main(void)
         dummyY += LCD_DEFAULT_FONT.Height / 2;
         Cell* cell = &table->grid[new_row  * table->col_count + new_col];
 
-        if (edit_col != new_col || edit_row != new_row) {
+        if (cnt == 0) {
           edit_col = new_col;
           edit_row = new_row;
           if (cell->raw_data != NULL) {
@@ -435,7 +442,18 @@ int main(void)
           if (cnt < MAX_LEN_FIELD) {
             if (uart_rx_byte == '\b' && cnt > 0) {
               buff[--cnt] = '\0';
-              BSP_LCD_DisplayChar(dummyX+cnt*LCD_DEFAULT_FONT.Width, dummyY, ' ');
+              int cur_col = get_clicked_col(table, start_col, start_row, dummyX+(cnt+1)*LCD_DEFAULT_FONT.Width);
+              uint16_t cur_color = get_cell_color(edit_row, cur_col);
+              BSP_LCD_SetTextColor(cur_color);
+              BSP_LCD_SetBackColor(cur_color);
+              BSP_LCD_FillRect(dummyX+(cnt+1)*LCD_DEFAULT_FONT.Width, dummyY - LCD_DEFAULT_FONT.Height / 2, LCD_DEFAULT_FONT.Width, 24); // cell_h = OFFSET_LINE
+              BSP_LCD_SetBackColor(LCD_COLOR_DARKGRAY);
+              int dummyx2 = 0;
+              find_cell_pos(table, edit_row, cur_col, &dummyx2, &(int){0}, start_row, start_col);
+              if (dummyx2 > dummyX+(cnt)*LCD_DEFAULT_FONT.Width) {
+                draw_cell(table, edit_row, cur_col, &(int){0}, &(int){0}, start_row, start_col, cur_color, 0);
+                BSP_LCD_SetBackColor(LCD_COLOR_DARKGRAY);
+              }
             }
             else if (uart_rx_byte != '\b') {
               buff[cnt++] = uart_rx_byte;
@@ -444,11 +462,14 @@ int main(void)
             // draw rectangle
             int cell_w = get_max_col_len(table, start_row, new_col, start_col);
             // + FONT_SIZE
-            if (cell_w < (cnt+1) * LCD_DEFAULT_FONT.Width + LCD_DEFAULT_FONT.Height) {
-              cell_w = (cnt+1) * LCD_DEFAULT_FONT.Width + LCD_DEFAULT_FONT.Height;
+            if (cell_w < (cnt+1) * LCD_DEFAULT_FONT.Width) {
+              cell_w = (cnt+1) * LCD_DEFAULT_FONT.Width;
               need_rendering = 1;
             }
-            if (dummyX + cell_w >= 240) cell_w = 240 - dummyX; // >= SCREEN_WIDTH
+            if (dummyX + cell_w >= 240) {
+              buff[--cnt] = '\0';
+              cell_w -= LCD_DEFAULT_FONT.Width;
+            }; // >= SCREEN_WIDTH
 
             BSP_LCD_SetTextColor(LCD_COLOR_DARKGRAY);
             BSP_LCD_FillRect(dummyX, dummyY-LCD_DEFAULT_FONT.Height / 2, cell_w, 24); // cell_h = OFFSET_LINE
@@ -468,6 +489,7 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
   /* USER CODE END 3 */
+  }
 }
 
 /**
@@ -735,7 +757,7 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin : PG8 */
   GPIO_InitStruct.Pin = GPIO_PIN_8;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOG, &GPIO_InitStruct);
