@@ -39,6 +39,10 @@ void display_main_menu(uint8_t count, uint8_t selected) {
 
     uint16_t offsetY = Font16.Height;
     BSP_LCD_SetFont(&LCD_DEFAULT_FONT);
+
+    if (count+2 > SCREEN_HEIGHT / OFFSET_LINE) {
+        count = SCREEN_HEIGHT / OFFSET_LINE - 2;
+    }
     char buf[32];
     for (int i = 0; i < count; i++) {
         sprintf(buf, "Table %d", i+1);
@@ -48,6 +52,16 @@ void display_main_menu(uint8_t count, uint8_t selected) {
         BSP_LCD_DisplayStringAt(0, offsetY + OFFSET_LINE*i, (uint8_t*)buf, CENTER_MODE);
         BSP_LCD_SetBackColor(LCD_COLOR_WHITE);
     }
+
+    if (selected == count) {
+        BSP_LCD_SetBackColor(LCD_COLOR_DARKGRAY);
+    }
+    else {
+        BSP_LCD_SetBackColor(LCD_COLOR_WHITE);
+    }
+
+    BSP_LCD_DisplayStringAt(0, offsetY + OFFSET_LINE*(count), (uint8_t*)"Load SD card", CENTER_MODE);
+
 }
 int get_size_cell(Cell* cell) {
     int size = 0;

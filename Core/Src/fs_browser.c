@@ -6,8 +6,6 @@ extern uint8_t retSD;
 extern char SDPath[4];
 extern FATFS SDFatFS;
 
-static FS_Entry entries_buff[MAX_ENTRIES];
-
 uint8_t fs_browser_mount() {
     if (retSD != 0) {
         return 0;
@@ -50,3 +48,6 @@ uint8_t fs_list_dir(const char* path, FS_Entry* entries) {
     f_closedir(&dir);
     return 0;
 }
+
+void fs_path_append(char* base_path, const char* sub_path) {}
+void fs_path_remove_last(char* path) {}

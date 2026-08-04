@@ -42,6 +42,8 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include "fs_browser.h"
+#include "fs_render.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -235,7 +237,7 @@ int main(void)
           }
             
           case JOY_DOWN:{
-            if (selected_table < total_tables - 1) {
+            if (selected_table < total_tables) {
               selected_table++;
               display_main_menu(total_tables, selected_table);
             }
@@ -243,6 +245,11 @@ int main(void)
           }
 
           case JOY_SEL:{
+            if (selected_table == total_tables) {
+              display_fs_browser();
+              cur_state = STATE_FS_BROWSER;
+              break;
+            }
             table = read_csv(csv_data[selected_table]);
             if (table == NULL) {
                 display_error("Failed to parse CSV data");
@@ -488,12 +495,14 @@ int main(void)
       }
     }
 
+    else if (cur_state == STATE_FS_BROWSER) {
+      // Implement file system browser logic here
+    }
     /* USER CODE END WHILE */
     MX_USB_HOST_Process();
-
     /* USER CODE BEGIN 3 */
-  /* USER CODE END 3 */
   }
+  /* USER CODE END 3 */
 }
 
 /**
@@ -761,7 +770,7 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin : PG8 */
   GPIO_InitStruct.Pin = GPIO_PIN_8;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOG, &GPIO_InitStruct);
