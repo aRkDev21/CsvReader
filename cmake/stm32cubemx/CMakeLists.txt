@@ -12,10 +12,14 @@ set(MX_Defines_Syms
 set(MX_Include_Dirs
     ${CMAKE_CURRENT_SOURCE_DIR}/../../FATFS/Target
     ${CMAKE_CURRENT_SOURCE_DIR}/../../FATFS/App
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../USB_HOST/App
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../USB_HOST/Target
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/Inc
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Drivers/STM32F4xx_HAL_Driver/Inc
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Middlewares/Third_Party/FatFs/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Middlewares/ST/STM32_USB_Host_Library/Core/Inc
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Middlewares/ST/STM32_USB_Host_Library/Class/HID/Inc
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Drivers/CMSIS/Device/ST/STM32F4xx/Include
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Drivers/CMSIS/Include
 )
@@ -26,6 +30,9 @@ set(MX_Application_Src
     ${CMAKE_CURRENT_SOURCE_DIR}/../../FATFS/Target/sd_diskio.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../../FATFS/Target/fatfs_platform.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../../FATFS/App/fatfs.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../USB_HOST/App/usb_host.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../USB_HOST/Target/usbh_conf.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../USB_HOST/Target/usbh_platform.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/Src/main.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/Src/stm32f4xx_it.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/Src/stm32f4xx_hal_msp.c
@@ -37,6 +44,8 @@ set(MX_Application_Src
 # STM32 HAL/LL Drivers
 set(STM32_Drivers_Src
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/Src/system_stm32f4xx.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_hcd.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_ll_usb.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_rcc.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_rcc_ex.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_flash.c
@@ -72,6 +81,16 @@ set(FatFs_Src
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Middlewares/Third_Party/FatFs/src/ff_gen_drv.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Middlewares/Third_Party/FatFs/src/option/syscall.c
 )
+set(USB_Host_Library_Src
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Middlewares/ST/STM32_USB_Host_Library/Core/Src/usbh_core.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Middlewares/ST/STM32_USB_Host_Library/Core/Src/usbh_ctlreq.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Middlewares/ST/STM32_USB_Host_Library/Core/Src/usbh_ioreq.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Middlewares/ST/STM32_USB_Host_Library/Core/Src/usbh_pipes.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Middlewares/ST/STM32_USB_Host_Library/Class/HID/Src/usbh_hid.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Middlewares/ST/STM32_USB_Host_Library/Class/HID/Src/usbh_hid_keybd.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Middlewares/ST/STM32_USB_Host_Library/Class/HID/Src/usbh_hid_mouse.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Middlewares/ST/STM32_USB_Host_Library/Class/HID/Src/usbh_hid_parser.c
+)
 
 # Link directories setup
 set(MX_LINK_DIRS
@@ -81,7 +100,7 @@ set(MX_LINK_DIRS
 set(MX_LINK_LIBS 
     STM32_Drivers
     ${TOOLCHAIN_LINK_LIBRARIES}
-    FatFs	
+    FatFs	USB_Host_Library	
 )
 # Interface library for includes and symbols
 add_library(stm32cubemx INTERFACE)
@@ -98,6 +117,11 @@ target_link_libraries(STM32_Drivers PUBLIC stm32cubemx)
 add_library(FatFs OBJECT)
 target_sources(FatFs PRIVATE ${FatFs_Src})
 target_link_libraries(FatFs PUBLIC stm32cubemx)
+
+# Create USB_Host_Library static library
+add_library(USB_Host_Library OBJECT)
+target_sources(USB_Host_Library PRIVATE ${USB_Host_Library_Src})
+target_link_libraries(USB_Host_Library PUBLIC stm32cubemx)
 
 # Add STM32CubeMX generated application sources to the project
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE ${MX_Application_Src})

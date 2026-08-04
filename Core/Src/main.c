@@ -18,8 +18,8 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "arena.h"
 #include "fatfs.h"
+#include "usb_host.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -86,6 +86,8 @@ static void MX_USART2_UART_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_TIM6_Init(void);
 static void MX_SDIO_SD_Init(void);
+void MX_USB_HOST_Process(void);
+
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -167,6 +169,7 @@ int main(void)
   MX_TIM6_Init();
   MX_SDIO_SD_Init();
   MX_FATFS_Init();
+  MX_USB_HOST_Init();
   /* USER CODE BEGIN 2 */
   init_lcd();
 
@@ -461,11 +464,12 @@ int main(void)
     }
 
     /* USER CODE END WHILE */
+    MX_USB_HOST_Process();
 
     /* USER CODE BEGIN 3 */
   /* USER CODE END 3 */
-  }
 }
+
 /**
   * @brief System Clock Configuration
   * @retval None
@@ -681,6 +685,9 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(LCD_RESET_GPIO_Port, LCD_RESET_Pin, GPIO_PIN_RESET);
 
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOG, GPIO_PIN_8, GPIO_PIN_RESET);
+
   /*Configure GPIO pins : LED3_Pin LED4_Pin LED1_Pin LED2_Pin */
   GPIO_InitStruct.Pin = LED3_Pin|LED4_Pin|LED1_Pin|LED2_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
@@ -725,6 +732,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(CTP_INT_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PG8 */
+  GPIO_InitStruct.Pin = GPIO_PIN_8;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOG, &GPIO_InitStruct);
 
   /*Configure GPIO pin : uSD_Detect_Pin */
   GPIO_InitStruct.Pin = uSD_Detect_Pin;
