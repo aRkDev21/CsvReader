@@ -135,6 +135,8 @@ int get_visible_width(Table* table, int s_row, int s_col, int col) {
 
 uint8_t is_cell_visible(Table* table, int row, int col, int start_row, int start_col) {
     int x, y;
+    if (start_row != 0 && row < start_row) return 0; 
+    if (start_col != 0 && col < start_col) return 0; 
     find_cell_pos(table, row, col, &x, &y, start_row, start_col);
 
     if (x >= 0 && x <= 239 && y >= 0 && y <= 239) return 1;

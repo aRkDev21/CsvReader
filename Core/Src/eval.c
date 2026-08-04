@@ -1,4 +1,5 @@
 #include "csv.h"
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
@@ -144,8 +145,18 @@ bool try_evaluate_cell(Table* t, int r, int c) {
     return true;
 }
 
-void evaluate_all(Table* t) {
+uint8_t evaluate_all(Table* t) {
+    // reset all cells to RAW state before evaluation
+    for (int i = 0; i < t->row_count; i++) {
+        for (int j = 0; j < t->col_count; j++) {
+            Cell* cell = &t->grid[i*t->col_count + j];
+            if (cell->raw_data != NULL) {
+                cell->state = RAW;
+            }
+        }
+    }
     bool progress;
+    uint8_t eval_flag = 0;
 
     do {
         progress = false;
@@ -153,6 +164,7 @@ void evaluate_all(Table* t) {
             for (int j = 0; j < t->col_count; j++) {
                 if (try_evaluate_cell(t, i, j)) {
                     progress = true;
+                    eval_flag = 1;
                 }
             }
         }
@@ -166,4 +178,6 @@ void evaluate_all(Table* t) {
             }
         }
     }
+
+    return eval_flag;
 }

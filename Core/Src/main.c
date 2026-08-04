@@ -401,7 +401,7 @@ int main(void)
         dummyY += LCD_DEFAULT_FONT.Height / 2;
         Cell* cell = &table->grid[new_row  * table->col_count + new_col];
 
-        if (cnt == 0) {
+        if ((cnt == 0 && buff[0] == '\0')){
           edit_col = new_col;
           edit_row = new_row;
           if (cell->raw_data != NULL) {
@@ -424,7 +424,9 @@ int main(void)
             int old_max_col_w = get_max_col_len(table,  start_row, new_col, start_col);
             cell->raw_data = arena_strdup(&table_arena, buff);
             cell->state = RAW;
-            evaluate_all(table);
+            if (evaluate_all(table)) {
+              need_rendering = 1;
+            }
             if (old_max_col_w != get_max_col_len(table,  start_row, new_col, start_col) || need_rendering) {
               update_viewport(new_row, new_col, &start_row, &start_col, table, &viewport_changed);
               render_table_to_lcd(table, start_row, start_col);
@@ -441,7 +443,8 @@ int main(void)
         else {
           if (cnt < MAX_LEN_FIELD) {
             if (uart_rx_byte == '\b' && cnt > 0) {
-              buff[--cnt] = '\0';
+              buff[cnt] = '\0';
+              buff[--cnt] = '\b';
               int cur_col = get_clicked_col(table, start_col, start_row, dummyX+(cnt+1)*LCD_DEFAULT_FONT.Width);
               uint16_t cur_color = get_cell_color(edit_row, cur_col);
               BSP_LCD_SetTextColor(cur_color);

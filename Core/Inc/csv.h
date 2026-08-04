@@ -4,6 +4,7 @@
 #define MAX_LEN_LINE 128
 #define MAX_LEN_FIELD 32
 
+#include <stdint.h>
 
 typedef enum {
     EMPTY,
@@ -34,5 +35,5 @@ void free_table(Table*);
 int len_header(Table*, int, int);
 int len_row(Table* table, int row, int i, int j);
 
-void evaluate_all(Table*);
+uint8_t evaluate_all(Table*);
 #endif
