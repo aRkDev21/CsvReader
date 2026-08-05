@@ -49,5 +49,34 @@ uint8_t fs_list_dir(const char* path, FS_Entry* entries) {
     return 0;
 }
 
-void fs_path_append(char* base_path, const char* sub_path) {}
-void fs_path_remove_last(char* path) {}
+uint8_t fs_path_append(char* base_path, const char* sub_path) {
+    size_t base_len = strlen(base_path);
+    uint8_t need_slash = (base_len > 0 && base_path[base_len - 1] != '/') ? 1 : 0;
+    // base / sub \0
+    if (base_len + need_slash + strlen(sub_path) + 1 > MAX_PATH_LEN) {
+        return 1;
+    }
+    if (need_slash) {
+        base_path[base_len] = '/';
+        base_path[++base_len] = '\0';
+    }
+
+    strcpy(&base_path[base_len], sub_path); 
+    return 0;
+}
+
+void fs_path_remove_last(char* path) {
+    size_t len = strlen(path);
+    if (len == 0) return;
+
+    long long i = (long long)len - 1;
+    while (i > 0 && path[i] != '/') {
+        i--;
+    }
+
+    if (i == 0 && path[0] == '/') {
+        i++;
+    }
+
+    path[i] = '\0';
+}
