@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "fatfs.h"
 
 int digit_count(int v){
     int8_t is_neg = (v<0) ? 1 : 0;
@@ -195,4 +196,38 @@ Table* read_csv(const char* file) {
 
 void free_table(Table* table) {
     reset_arena(&table_arena);
+}
+
+Table* read_csv_from_file(const char* filename) {
+    // Implementation for reading CSV from a specific file
+    FIL fil;
+    FRESULT res;
+
+    res = f_open(&fil, filename, FA_READ);
+    if (res != FR_OK) {
+        f_close(&fil);
+        return NULL;
+    }
+
+    FSIZE_t file_size = f_size(&fil);
+    if (file_size == 0) {
+        f_close(&fil);
+        return NULL;
+    }
+
+    char* file_content = (char*) arena_alloc(&table_arena, file_size + 1);
+    if (!file_content) {
+        f_close(&fil);
+        return NULL;
+    }
+
+    UINT bytes_read;
+    res = f_read(&fil, file_content, (UINT)file_size, &bytes_read);
+    f_close(&fil);
+    if (res != FR_OK || bytes_read != file_size) {
+        return NULL;
+    }
+
+    file_content[file_size] = '\0';
+    return read_csv(file_content);
 }

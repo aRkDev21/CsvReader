@@ -5,6 +5,7 @@
 extern uint8_t retSD;
 extern char SDPath[4];
 extern FATFS SDFatFS;
+char current_path[MAX_PATH_LEN];
 
 uint8_t fs_browser_mount() {
     if (retSD != 0) {
@@ -12,6 +13,7 @@ uint8_t fs_browser_mount() {
     }
     
     FRESULT res = f_mount(&SDFatFS, (TCHAR const*)SDPath, 1);
+    strcpy(current_path, SDPath);
     return (res == FR_OK);
 }
 

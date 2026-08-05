@@ -140,6 +140,9 @@ const char* csv_data[] = {
                       "30,1\n"
                       "3210900,0\n", 
                     };
+
+extern FS_Entry entries_buff[MAX_ENTRIES];
+extern char current_path[MAX_PATH_LEN];
 /* USER CODE END 0 */
 
 /**
@@ -197,6 +200,7 @@ int main(void)
   int selected_table = 0;
   int total_tables = 3;
   Table* table = NULL;
+  int selected_entry = 0;
 
   // selected cell coordinates
   int new_row = 0;
@@ -225,6 +229,7 @@ int main(void)
   while (1)
   {
     if (cur_state == STATE_MENU) {
+      free_table(table);
       if (joy_flag) {
         joy_flag = 0;
         switch (StableJoyState) {
@@ -246,10 +251,11 @@ int main(void)
 
           case JOY_SEL:{
             if (selected_table == total_tables) {
-              display_fs_browser();
+              display_fs_browser(selected_entry);
               cur_state = STATE_FS_BROWSER;
               break;
             }
+
             table = read_csv(csv_data[selected_table]);
             if (table == NULL) {
                 display_error("Failed to parse CSV data");
@@ -496,7 +502,50 @@ int main(void)
     }
 
     else if (cur_state == STATE_FS_BROWSER) {
-      // Implement file system browser logic here
+      if (joy_flag) {
+        joy_flag = 0;
+        switch (StableJoyState) {
+          case JOY_UP: {
+            if (selected_entry > 0) {
+              selected_entry--;
+              display_fs_browser(selected_entry);
+            }
+            break;
+          }
+            
+          case JOY_DOWN: {
+            if (selected_entry < MAX_ENTRIES - 1) {
+              selected_entry++;
+              display_fs_browser(selected_entry);
+            }
+            break;
+          }
+
+          case JOY_SEL:{
+            // Implement file system browser logic here
+            fs_path_append(current_path, entries_buff[selected_entry].name);
+            table = read_csv_from_file(entries_buff[selected_entry].name);
+            if (table == NULL) {
+              display_error("Failed to parse CSV data");
+              break;
+            }
+            evaluate_all(table);
+
+            new_row = 0; new_col = 0;
+            start_row = 0; start_col = 0;
+
+            render_table_to_lcd(table, start_row, start_col);
+            highlight_cell(table, new_row, new_col, start_row, start_col);
+
+            cur_state = STATE_TABLE;
+            StableJoyState = JOY_NONE;
+            break;
+          }
+
+          default:
+            break;
+        }
+      }
     }
     /* USER CODE END WHILE */
     MX_USB_HOST_Process();
