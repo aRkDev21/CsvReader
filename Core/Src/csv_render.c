@@ -47,14 +47,14 @@ void display_main_menu(uint8_t count, uint8_t selected) {
     for (int i = 0; i < count; i++) {
         sprintf(buf, "Table %d", i+1);
         if (i == selected) {
-            BSP_LCD_SetBackColor(LCD_COLOR_DARKGRAY);
+            BSP_LCD_SetBackColor((uint16_t)0x74FA);
         }
         BSP_LCD_DisplayStringAt(0, offsetY + OFFSET_LINE*i, (uint8_t*)buf, CENTER_MODE);
         BSP_LCD_SetBackColor(LCD_COLOR_WHITE);
     }
 
     if (selected == count) {
-        BSP_LCD_SetBackColor(LCD_COLOR_DARKGRAY);
+        BSP_LCD_SetBackColor((uint16_t)0x74FA);
     }
     else {
         BSP_LCD_SetBackColor(LCD_COLOR_WHITE);
@@ -408,7 +408,7 @@ int highlight_cell(Table* table, int new_row, int new_col, int start_row, int st
     // highlight the new cell
     if (!is_cell_visible(table, new_row, new_col, start_row, start_col)) return 0;
     int curX = 0, curY = 0;
-    return draw_cell(table, new_row, new_col, &curX, &curY, start_row, start_col, LCD_COLOR_DARKGRAY, 0);
+    return draw_cell(table, new_row, new_col, &curX, &curY, start_row, start_col, (uint16_t)0x74FA, 0);
 }
 
 int get_clicked_row(int start_row, int y) {

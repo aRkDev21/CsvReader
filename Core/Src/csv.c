@@ -231,3 +231,82 @@ Table* read_csv_from_file(const char* filename) {
     file_content[file_size] = '\0';
     return read_csv(file_content);
 }
+
+uint8_t save_table(Table* table, const char* filename) {
+    FIL fil;
+    FRESULT res;
+    char tmp_path[256]; // add size into const
+
+    snprintf(tmp_path, sizeof(tmp_path), "%s.tmp", filename);
+
+    res = f_open(&fil, tmp_path, FA_WRITE | FA_CREATE_ALWAYS);
+    if (res != FR_OK) {
+        return res; // Error opening file
+    }
+
+    UINT bytes_written;
+    // write header
+    res = f_write(&fil, ",", 1, &bytes_written);
+    for (int j = 0; j < table->col_count; j++) {
+        const char* col_name = table->col_names[j];
+        res = f_write(&fil, col_name, strlen(col_name), &bytes_written);
+        if (res != FR_OK || bytes_written != strlen(col_name)) {
+            f_close(&fil);
+            return res; 
+        }
+        if (j < table->col_count - 1) {
+            res = f_write(&fil, ",", 1, &bytes_written);
+            if (res != FR_OK || bytes_written != 1) {
+                f_close(&fil);
+                return res; 
+            }
+        }
+    }
+
+    for (int i = 0; i < table->row_count; i++) {
+        // write row id
+        char row_id_str[12];
+        snprintf(row_id_str, sizeof(row_id_str), "%d", table->row_ids[i]);
+        res = f_write(&fil, row_id_str, strlen(row_id_str), &bytes_written);
+        if (res != FR_OK || bytes_written != strlen(row_id_str)) {
+            f_close(&fil);
+            return res; 
+        }
+        res = f_write(&fil, ",", 1, &bytes_written);
+        if (res != FR_OK || bytes_written != 1) {
+            f_close(&fil);
+            return res; 
+        }
+
+        // write raw data
+        for (int j = 0; j < table->col_count; j++) {
+            Cell* cell = &table->grid[i * table->col_count + j];
+            const char* cell_data = (cell->raw_data) ? cell->raw_data : "";
+            res = f_write(&fil, cell_data, strlen(cell_data), &bytes_written);
+            if (res != FR_OK || bytes_written != strlen(cell_data)) {
+                f_close(&fil);
+                return res; 
+            }
+            if (j < table->col_count - 1) {
+                res = f_write(&fil, ",", 1, &bytes_written);
+                if (res != FR_OK || bytes_written != 1) {
+                    f_close(&fil);
+                    return res; 
+                }
+            }
+        }
+
+        res = f_write(&fil, "\n", 1, &bytes_written);
+        if (res != FR_OK || bytes_written != 1) {
+            f_close(&fil);
+            return res; 
+        }
+        f_sync(&fil); 
+    }
+    f_close(&fil);
+
+
+    f_unlink(filename);
+    res = f_rename(tmp_path, filename);
+    return res;
+}

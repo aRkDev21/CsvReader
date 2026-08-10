@@ -14,7 +14,7 @@ typedef struct {
 } FS_Entry;
 
 uint8_t fs_browser_mount();
-uint8_t fs_list_dir(const char* path, FS_Entry* entries);
+uint16_t fs_list_dir(char* path, FS_Entry* entries);
 
 uint8_t fs_path_append(char* base_path, const char* sub_path);
 void fs_path_remove_last(char* path);

@@ -1,4 +1,6 @@
 /* USER CODE BEGIN Header */
+// sudo minicom -D /dev/ttyACM0 -b 115200
+
 /**
   ******************************************************************************
   * @file           : main.c
@@ -222,6 +224,7 @@ int main(void)
   int edit_row = -2;
   int edit_col = -2;
   uint8_t need_rendering = 0;
+  uint16_t count_fentries = 0;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -251,7 +254,12 @@ int main(void)
 
           case JOY_SEL:{
             if (selected_table == total_tables) {
-              display_fs_browser(selected_entry);
+              if (!fs_browser_mount()) {
+                display_error("Failed to mount SD card");
+                Error_Handler();
+              }
+              count_fentries = display_fs_browser(selected_entry);
+
               cur_state = STATE_FS_BROWSER;
               break;
             }
@@ -280,11 +288,6 @@ int main(void)
       }
     }
     else if (cur_state == STATE_TABLE) {
-      // if (BSP_SD_Init() != MSD_OK) {
-      //   display_error("SD card not initializied!!");
-      //   HAL_Delay(1000);
-      //   Error_Handler();
-      // }
       if (ts_flag || is_tracking) 
       {
         ts_flag = 0;
@@ -374,6 +377,7 @@ int main(void)
               break;
 
           case JOY_SEL:
+              save_table(table, current_path);
               free_table(table);
               table = NULL;
               display_main_menu(total_tables, selected_table);
@@ -508,37 +512,51 @@ int main(void)
           case JOY_UP: {
             if (selected_entry > 0) {
               selected_entry--;
-              display_fs_browser(selected_entry);
+              count_fentries = display_fs_browser(selected_entry);
             }
             break;
           }
             
           case JOY_DOWN: {
-            if (selected_entry < MAX_ENTRIES - 1) {
+            if (selected_entry < count_fentries - 1) { // fix this boundary
               selected_entry++;
-              display_fs_browser(selected_entry);
+              count_fentries = display_fs_browser(selected_entry);
             }
             break;
           }
 
           case JOY_SEL:{
             // Implement file system browser logic here
-            fs_path_append(current_path, entries_buff[selected_entry].name);
-            table = read_csv_from_file(entries_buff[selected_entry].name);
-            if (table == NULL) {
-              display_error("Failed to parse CSV data");
-              break;
+            if (!entries_buff[selected_entry].is_dir) {
+              table = read_csv_from_file(entries_buff[selected_entry].name);
+              if (table == NULL) {
+                display_error("Failed to parse CSV data");
+                break;
+              }
+              evaluate_all(table);
+
+              new_row = 0; new_col = 0;
+              start_row = 0; start_col = 0;
+
+              render_table_to_lcd(table, start_row, start_col);
+              highlight_cell(table, new_row, new_col, start_row, start_col);
+
+              cur_state = STATE_TABLE;
+              StableJoyState = JOY_NONE;
             }
-            evaluate_all(table);
 
-            new_row = 0; new_col = 0;
-            start_row = 0; start_col = 0;
+            else {
+              if (strcmp(entries_buff[selected_entry].name, "..") == 0) {
+                fs_path_remove_last(current_path);
+              }
 
-            render_table_to_lcd(table, start_row, start_col);
-            highlight_cell(table, new_row, new_col, start_row, start_col);
+              else {
+                fs_path_append(current_path, entries_buff[selected_entry].name);
+              }
+              selected_entry = 0;
+              count_fentries = display_fs_browser(selected_entry);
+            }
 
-            cur_state = STATE_TABLE;
-            StableJoyState = JOY_NONE;
             break;
           }
 
@@ -548,7 +566,7 @@ int main(void)
       }
     }
     /* USER CODE END WHILE */
-    MX_USB_HOST_Process();
+    //MX_USB_HOST_Process();
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -655,7 +673,7 @@ static void MX_SDIO_SD_Init(void)
   hsd.Init.ClockPowerSave = SDIO_CLOCK_POWER_SAVE_DISABLE;
   hsd.Init.BusWide = SDIO_BUS_WIDE_1B;
   hsd.Init.HardwareFlowControl = SDIO_HARDWARE_FLOW_CONTROL_DISABLE;
-  hsd.Init.ClockDiv = 0;
+  hsd.Init.ClockDiv = 118;
   /* USER CODE BEGIN SDIO_Init 2 */
 
   /* USER CODE END SDIO_Init 2 */

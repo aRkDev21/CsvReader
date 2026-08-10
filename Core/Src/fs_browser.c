@@ -1,6 +1,7 @@
 #include "fs_browser.h"
 #include "string.h"
 #include "ff.h"
+#include <stddef.h>
 
 extern uint8_t retSD;
 extern char SDPath[4];
@@ -12,32 +13,34 @@ uint8_t fs_browser_mount() {
         return 0;
     }
     
-    FRESULT res = f_mount(&SDFatFS, (TCHAR const*)SDPath, 1);
+    FRESULT res = f_mount(&SDFatFS, (TCHAR const*)SDPath, 0);
     strcpy(current_path, SDPath);
     return (res == FR_OK);
 }
 
-uint8_t fs_list_dir(const char* path, FS_Entry* entries) {
+uint16_t fs_list_dir(char* path, FS_Entry* entries) {
     DIR dir;
     FILINFO fno;
     FRESULT res;
 
     res = f_opendir(&dir, path);
     if (res != FR_OK) {
-        return 1;
+        return -1;
     }
 
-    uint16_t count = 0;
+    strcpy(entries[0].name, "..");
+    entries[0].is_dir = 1;
+
+    uint16_t count = 1;
 
     while (count < MAX_ENTRIES) {
         res = f_readdir(&dir, &fno);
         if (res != FR_OK || fno.fname[0] == '\0') {
+            entries[count].name[0] = '\0';
             break;
         }
 
-        strncpy(entries[count].name, fno.fname, sizeof(entries[count].name) - 1);
-        entries[count].name[sizeof(entries[count].name) - 1] = '\0';
-
+        strcpy(entries[count].name, fno.fname);
         if (fno.fattrib & AM_DIR) {
             entries[count].is_dir = 1;
         } else {
@@ -48,7 +51,7 @@ uint8_t fs_list_dir(const char* path, FS_Entry* entries) {
     }
 
     f_closedir(&dir);
-    return 0;
+    return count;
 }
 
 uint8_t fs_path_append(char* base_path, const char* sub_path) {
@@ -69,7 +72,7 @@ uint8_t fs_path_append(char* base_path, const char* sub_path) {
 
 void fs_path_remove_last(char* path) {
     size_t len = strlen(path);
-    if (len == 0) return;
+    if (len < 3) return;
 
     long long i = (long long)len - 1;
     while (i > 0 && path[i] != '/') {

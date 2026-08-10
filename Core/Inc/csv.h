@@ -32,6 +32,7 @@ typedef struct {
 int digit_count(int);
 Table* read_csv(const char*);
 Table* read_csv_from_file(const char* filename);
+uint8_t save_table(Table* table, const char* filename);
 void free_table(Table*);
 int len_header(Table*, int, int);
 int len_row(Table* table, int row, int i, int j);
