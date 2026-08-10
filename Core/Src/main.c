@@ -412,7 +412,7 @@ int main(void)
         }  
       }
 
-      if (newChar_flag) {
+      if (newChar_flag && new_row != -1 && new_col != -1) {
 
         int dummyX = 0, dummyY = 0;
         find_cell_pos(table, new_row, new_col, &dummyX, &dummyY, start_row, start_col);
@@ -431,7 +431,7 @@ int main(void)
           }
           
           buff[cnt] = '\0';
-          clear_cell(table, new_row, new_col, start_row, start_col, LCD_COLOR_DARKGRAY);
+          clear_cell(table, new_row, new_col, start_row, start_col, (uint16_t)0x74FA);
         }
 
         if (uart_rx_byte == '\n' || uart_rx_byte == '\r') {
@@ -468,12 +468,12 @@ int main(void)
               BSP_LCD_SetTextColor(cur_color);
               BSP_LCD_SetBackColor(cur_color);
               BSP_LCD_FillRect(dummyX+(cnt+1)*LCD_DEFAULT_FONT.Width, dummyY - LCD_DEFAULT_FONT.Height / 2, LCD_DEFAULT_FONT.Width, 24); // cell_h = OFFSET_LINE
-              BSP_LCD_SetBackColor(LCD_COLOR_DARKGRAY);
+              BSP_LCD_SetBackColor((uint16_t)0x74FA);
               int dummyx2 = 0;
               find_cell_pos(table, edit_row, cur_col, &dummyx2, &(int){0}, start_row, start_col);
               if (dummyx2 > dummyX+(cnt)*LCD_DEFAULT_FONT.Width) {
                 draw_cell(table, edit_row, cur_col, &(int){0}, &(int){0}, start_row, start_col, cur_color, 0);
-                BSP_LCD_SetBackColor(LCD_COLOR_DARKGRAY);
+                BSP_LCD_SetBackColor((uint16_t)0x74FA);
               }
             }
             else if (uart_rx_byte != '\b') {
@@ -487,12 +487,12 @@ int main(void)
               cell_w = (cnt+1) * LCD_DEFAULT_FONT.Width;
               need_rendering = 1;
             }
-            if (dummyX + cell_w >= 240) {
+            if (dummyX + (cnt+1) * LCD_DEFAULT_FONT.Width > 240) {
               buff[--cnt] = '\0';
               cell_w -= LCD_DEFAULT_FONT.Width;
             }; // >= SCREEN_WIDTH
 
-            BSP_LCD_SetTextColor(LCD_COLOR_DARKGRAY);
+            BSP_LCD_SetTextColor((uint16_t)0x74FA);
             BSP_LCD_FillRect(dummyX, dummyY-LCD_DEFAULT_FONT.Height / 2, cell_w, 24); // cell_h = OFFSET_LINE
             BSP_LCD_SetTextColor(LCD_COLOR_DARKBLUE);
             BSP_LCD_DisplayStringAt(dummyX, dummyY, (uint8_t*) buff, 0);
@@ -528,6 +528,7 @@ int main(void)
           case JOY_SEL:{
             // Implement file system browser logic here
             if (!entries_buff[selected_entry].is_dir) {
+              fs_path_append(current_path, entries_buff[selected_entry].name);
               table = read_csv_from_file(entries_buff[selected_entry].name);
               if (table == NULL) {
                 display_error("Failed to parse CSV data");
