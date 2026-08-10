@@ -377,7 +377,9 @@ int main(void)
               break;
 
           case JOY_SEL:
-              save_table(table, current_path);
+              if (selected_table == total_tables) {
+                save_table(table, current_path);
+              }
               free_table(table);
               table = NULL;
               display_main_menu(total_tables, selected_table);
