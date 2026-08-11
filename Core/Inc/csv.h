@@ -29,9 +29,18 @@ typedef struct {
     int* col_widths;
 } Table;
 
+typedef struct {
+    const char* cur;
+    const char* start;
+} StringStream;
+
+typedef int (*read_line_fn)(void* ctx, char* buf, int max_len);
+typedef void (*rewind_fn)(void* ctx);
+
 int digit_count(int);
-Table* read_csv(const char*);
+Table* read_csv(read_line_fn, rewind_fn, void*);
 Table* read_csv_from_file(const char* filename);
+Table* read_csv_from_strmem(const char* buffer);
 uint8_t save_table(Table* table, const char* filename);
 void free_table(Table*);
 int len_header(Table*, int, int);

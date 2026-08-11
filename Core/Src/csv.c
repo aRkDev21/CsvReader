@@ -1,5 +1,6 @@
 #include "csv.h"
 #include "arena.h"
+#include "ff.h"
 #include "stm32412g_discovery_lcd.h"
 #include <stdint.h>
 #include <stdio.h>
@@ -30,26 +31,6 @@ int count_char(char *str, char target) {
     }
 
     return count;
-}
-
-//
-int read_line(const char** file_ptr, char buffer[]) {
-    size_t len = 0;
-
-    if (!file_ptr || !*file_ptr || **file_ptr == '\0') return len;
-    const char* str = *file_ptr;
-    while (*str != '\0' && *str != '\n') {
-        if (len + 1 >= MAX_LEN_LINE) {
-            return -1;
-        }
-        buffer[len++] = *str++;
-    }
-
-    if (*str == '\n') str++;
-    buffer[len] = '\0';
-    *file_ptr = str;
-    return len;
-
 }
 
 void trim_newline(char* str){
@@ -119,10 +100,10 @@ int parse_header(char* line, Table* table) {
     return 1;
 }
 
-int parse_body(char* line, const char* file_cursor, Table* table) {
+int parse_body(char* line, void* ctx, Table* table, read_line_fn read_line) {
 	// 1 - success, 0 - error
     int current_row = 0;
-    while ((read_line(&file_cursor, line)) > 0) {
+    while ((read_line(ctx, line, MAX_LEN_LINE)) > 0) {
         trim_newline(line);
 
         char *line_ptr = line;
@@ -161,13 +142,12 @@ int parse_body(char* line, const char* file_cursor, Table* table) {
     return 1;
 }
 
-Table* read_csv(const char* file) {
+Table* read_csv(read_line_fn read_line, rewind_fn rewind, void* ctx) {
     Table* table = (Table*) arena_alloc(&table_arena, sizeof(Table));
-
     if (!table) return NULL;
+
     char line[MAX_LEN_LINE];
-    const char* file_cursor = file;
-    if (read_line(&file_cursor, line) < 0) return NULL;
+    if (read_line(ctx, line, MAX_LEN_LINE) < 0) return NULL;
 
     trim_newline(line);
 
@@ -180,26 +160,70 @@ Table* read_csv(const char* file) {
 
     // rows count
     int rows = 0;
-    const char* current_pos = file_cursor;
-    while ((read_line(&file_cursor, line)) > 0) rows++;
-    file_cursor = current_pos;
+    while (read_line(ctx, line, MAX_LEN_LINE) > 0) rows++;
+    rewind(ctx);
     table->row_count = rows;
+    read_line(ctx, line, MAX_LEN_LINE); // read header again
+
 
     table->row_ids = (int*) arena_alloc(&table_arena, rows * sizeof(int));
     table->grid = (Cell*) arena_alloc(&table_arena, rows * table->col_count * sizeof(Cell));
     if (!table->grid || !table->row_ids) return NULL;
 
-    if (!parse_body(line, file_cursor, table)) return NULL;
+    if (!parse_body(line, ctx, table, read_line)) return NULL;
 
     return table;
 }
+
+int fatfs_readline(void* ctx, char* buf, int max_len) {
+    FIL* fil = (FIL*) ctx;
+    if (f_eof(fil)) {
+        return -1;
+    }
+
+    if (f_gets(buf, (int)max_len, fil) == NULL) {
+        return -1; // Error or EOF
+    }
+    return strlen(buf);
+}
+
+void fatfs_rewind(void* ctx) {
+    FIL* fil = (FIL*) ctx;
+    f_lseek(fil, 0);
+}
+
+int strmem_readline(void* ctx, char* buffer, int max_len) {
+    StringStream* ss = (StringStream*) ctx;
+
+    int len = 0;
+
+    if (!ss || !ss->cur || *ss->cur == '\0') return len;
+    while (*ss->cur != '\0' && *ss->cur != '\n') {
+        if (len + 1 >= MAX_LEN_LINE) {
+            return -1;
+        }
+        buffer[len++] = *ss->cur++;
+    }
+
+    if (*ss->cur == '\n') ss->cur++;
+    buffer[len] = '\0';
+    return (int)len;
+
+}
+
+void strmem_rewind(void* ctx) {
+    StringStream* ss = (StringStream*) ctx;
+    if (ss) {
+        ss->cur = ss->start;
+    }
+}
+
 
 void free_table(Table* table) {
     reset_arena(&table_arena);
 }
 
 Table* read_csv_from_file(const char* filename) {
-    // Implementation for reading CSV from a specific file
     FIL fil;
     FRESULT res;
 
@@ -209,27 +233,18 @@ Table* read_csv_from_file(const char* filename) {
         return NULL;
     }
 
-    FSIZE_t file_size = f_size(&fil);
-    if (file_size == 0) {
-        f_close(&fil);
-        return NULL;
-    }
-
-    char* file_content = (char*) arena_alloc(&table_arena, file_size + 1);
-    if (!file_content) {
-        f_close(&fil);
-        return NULL;
-    }
-
-    UINT bytes_read;
-    res = f_read(&fil, file_content, (UINT)file_size, &bytes_read);
+    Table *table = read_csv(fatfs_readline, fatfs_rewind, &fil);
     f_close(&fil);
-    if (res != FR_OK || bytes_read != file_size) {
-        return NULL;
-    }
+    return table;
+}
 
-    file_content[file_size] = '\0';
-    return read_csv(file_content);
+Table* read_csv_from_strmem(const char* buffer) {
+    StringStream ss = {
+        .cur = buffer,
+        .start = buffer
+    };
+
+    return read_csv(strmem_readline, strmem_rewind, &ss);
 }
 
 uint8_t save_table(Table* table, const char* filename) {

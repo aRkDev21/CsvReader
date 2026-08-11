@@ -264,7 +264,7 @@ int main(void)
               break;
             }
 
-            table = read_csv(csv_data[selected_table]);
+            table = read_csv_from_strmem(csv_data[selected_table]);
             if (table == NULL) {
                 display_error("Failed to parse CSV data");
                 break;
