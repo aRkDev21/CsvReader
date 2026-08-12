@@ -23,6 +23,7 @@
 #include "arena.h"
 #include "csv_render.h"
 #include "fatfs.h"
+#include "stm32f4xx_hal_def.h"
 #include "usb_host.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -43,10 +44,12 @@
 #include "usbh_hid.h"
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "fs_browser.h"
 #include "fs_render.h"
 #include "menu_render.h"
+#include "usbh_hid_keybd.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -101,6 +104,7 @@ uint8_t uart_rx_byte;
 volatile uint8_t newChar_flag = 0;
 
 extern ApplicationTypeDef Appli_state;
+extern USBH_HandleTypeDef hUsbHostFS;
 extern FS_Entry entries_buff[MAX_ENTRIES];
 extern char current_path[MAX_PATH_LEN];
 extern uint8_t is_tracking;
@@ -124,6 +128,19 @@ void process_fs_browser_state(AppState* cur_state, Table** table, FSParams* fs_p
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+int _write(int fd, char *ptr, int len) {
+    for (int i = 0; i < len; i++) {
+      if (ptr[i] == '\n') {
+        uint8_t ch = '\r';
+        HAL_UART_Transmit(&huart2, &ch, 1, HAL_MAX_DELAY);
+      }
+      HAL_UART_Transmit(&huart2, (uint8_t *)&ptr[i], 1, HAL_MAX_DELAY);
+    }
+
+    return len;
+}
+
 const char* csv_data[] = {
                 ",A,B,C,VeryLongHeaderNameTooLongFloat,NextColumn\n"
                       "1,0,0,1,12,\n"
@@ -183,6 +200,7 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
+  setvbuf(stdout, NULL, _IONBF, 0);
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -232,18 +250,18 @@ int main(void)
   display_main_menu(&menu_params);
 
   HAL_UART_Receive_IT(&huart2, &uart_rx_byte, 1);
-  // char buff[MAX_LEN_LINE];
-  // int cnt = 0;
-  // int edit_row = -2;
-  // int edit_col = -2;
-  // uint8_t need_rendering = 0;
+
+  HAL_GPIO_WritePin(GPIOG, GPIO_PIN_8, GPIO_PIN_RESET);
+  HAL_Delay(50);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-   switch (cur_state) {
+    MX_USB_HOST_Process();
+    
+    switch (cur_state) {
       case STATE_MENU:
         process_menu_state(&cur_state, &table, &menu_params, &fs_params, &render_params, &kb_params);
         break;
@@ -258,10 +276,9 @@ int main(void)
 
       default:
         break;
-   }
+    }
 
     /* USER CODE END WHILE */
-    //MX_USB_HOST_Process();
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -969,6 +986,19 @@ void process_fs_browser_state(AppState* cur_state, Table** table, FSParams* fs_p
     }
   }
 }
+
+void USBH_HID_EventCallback(USBH_HandleTypeDef *phost) {
+  if (USBH_HID_GetDeviceType(phost) == HID_KEYBOARD) {
+    HID_KEYBD_Info_TypeDef *k_info = USBH_HID_GetKeybdInfo(phost);
+    if (k_info != NULL) {
+      if (k_info->keys[0] != 0) {
+        uart_rx_byte = USBH_HID_GetASCIICode(k_info);
+        if (uart_rx_byte != '\0') newChar_flag = 1;
+      }
+    }
+  }
+}
+
 /* USER CODE END 4 */
 
 /**

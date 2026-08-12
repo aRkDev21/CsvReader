@@ -895,11 +895,11 @@ uint16_t USBH_HID_FifoWrite(FIFO_TypeDef *f, void *buf, uint16_t  nbytes)
   *  @param  phost: Selected device
   * @retval None
   */
-__weak void USBH_HID_EventCallback(USBH_HandleTypeDef *phost)
-{
-  /* Prevent unused argument(s) compilation warning */
-  UNUSED(phost);
-}
+// __weak void USBH_HID_EventCallback(USBH_HandleTypeDef *phost)
+// {
+//   /* Prevent unused argument(s) compilation warning */
+//   UNUSED(phost);
+// }
 /**
   * @}
   */
