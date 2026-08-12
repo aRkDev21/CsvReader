@@ -12,57 +12,6 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#define FONT_SIZE 12
-#define OFFSET_LINE 24
-
-#define SCREEN_WIDTH 240
-#define SCREEN_HEIGHT 240
-
-void init_lcd() {
-    BSP_LCD_Init();
-	BSP_LCD_SetFont(&LCD_DEFAULT_FONT);
-
-	BSP_LCD_SetBackColor(LCD_COLOR_WHITE);
-	BSP_LCD_Clear(LCD_COLOR_WHITE);
-
-	BSP_LCD_SetTextColor(LCD_COLOR_DARKBLUE);
-}
-
-void display_main_menu(uint8_t count, uint8_t selected) {
-    BSP_LCD_SetBackColor(LCD_COLOR_WHITE);
-	BSP_LCD_Clear(LCD_COLOR_WHITE);
-
-	BSP_LCD_SetTextColor(LCD_COLOR_DARKBLUE);
-
-    BSP_LCD_SetFont(&Font16);
-    BSP_LCD_DisplayStringAt(0, 0, (uint8_t*) "CSV BARE METAL TOOL", CENTER_MODE);
-
-    uint16_t offsetY = Font16.Height;
-    BSP_LCD_SetFont(&LCD_DEFAULT_FONT);
-
-    if (count+2 > SCREEN_HEIGHT / OFFSET_LINE) {
-        count = SCREEN_HEIGHT / OFFSET_LINE - 2;
-    }
-    char buf[32];
-    for (int i = 0; i < count; i++) {
-        sprintf(buf, "Table %d", i+1);
-        if (i == selected) {
-            BSP_LCD_SetBackColor((uint16_t)0x74FA);
-        }
-        BSP_LCD_DisplayStringAt(0, offsetY + OFFSET_LINE*i, (uint8_t*)buf, CENTER_MODE);
-        BSP_LCD_SetBackColor(LCD_COLOR_WHITE);
-    }
-
-    if (selected == count) {
-        BSP_LCD_SetBackColor((uint16_t)0x74FA);
-    }
-    else {
-        BSP_LCD_SetBackColor(LCD_COLOR_WHITE);
-    }
-
-    BSP_LCD_DisplayStringAt(0, offsetY + OFFSET_LINE*(count), (uint8_t*)"Load SD card", CENTER_MODE);
-
-}
 int get_size_cell(Cell* cell) {
     int size = 0;
     if (cell->state == DONE) {
@@ -384,18 +333,6 @@ void render_table_to_lcd(Table* table, int start_row, int start_col) {
     }
 
 }
-
-
-void display_error(const char* error_text) {
-    BSP_LCD_Clear(LCD_COLOR_WHITE);
-	BSP_LCD_SetTextColor(LCD_COLOR_RED);
-	BSP_LCD_DisplayStringAt(0, 
-                            0, 
-                            (uint8_t*) error_text, 
-                            CENTER_MODE);
-    BSP_LCD_SetTextColor(LCD_COLOR_DARKBLUE);
-}
-
 
 int unhighlight_cell(Table* table, int cur_row, int cur_col, int start_row, int start_col) {
     // remove highlight from the previous cell

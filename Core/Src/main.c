@@ -46,6 +46,7 @@
 #include <string.h>
 #include "fs_browser.h"
 #include "fs_render.h"
+#include "menu_render.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -55,6 +56,20 @@ typedef enum {
     STATE_TABLE,
     STATE_FS_BROWSER
 } AppState;
+
+typedef struct {
+  char buff[MAX_LEN_LINE];
+  int cnt;
+  int edit_row;
+  int edit_col;
+  uint8_t need_rendering;
+} KBParams;
+
+typedef struct {
+  int selected_entry;
+  uint16_t count_fentries;
+} FSParams;
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -84,6 +99,10 @@ volatile uint8_t ts_flag = 0;
 static TS_StateTypeDef TS_State = {0};
 uint8_t uart_rx_byte;
 volatile uint8_t newChar_flag = 0;
+
+extern FS_Entry entries_buff[MAX_ENTRIES];
+extern char current_path[MAX_PATH_LEN];
+extern uint8_t is_tracking;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -97,7 +116,9 @@ static void MX_SDIO_SD_Init(void);
 void MX_USB_HOST_Process(void);
 
 /* USER CODE BEGIN PFP */
-
+void process_menu_state(AppState* cur_state, Table** table, MenuParams* menu_params, FSParams* fs_params, RenderParams* render_params, KBParams* kb_params);
+void process_table_state(AppState* cur_state, Table** table, MenuParams* menu_params, RenderParams* render_params, KBParams* kb_params);
+void process_fs_browser_state(AppState* cur_state, Table** table, FSParams* fs_params, RenderParams* render_params, KBParams* kb_params);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -143,8 +164,6 @@ const char* csv_data[] = {
                       "3210900,0\n", 
                     };
 
-extern FS_Entry entries_buff[MAX_ENTRIES];
-extern char current_path[MAX_PATH_LEN];
 /* USER CODE END 0 */
 
 /**
@@ -199,375 +218,47 @@ int main(void)
   }
 
   AppState cur_state = STATE_MENU;
-  int selected_table = 0;
-  int total_tables = 3;
   Table* table = NULL;
-  int selected_entry = 0;
 
-  // selected cell coordinates
-  int new_row = 0;
-  int new_col = 0;
+  MenuParams menu_params = {
+    .selected_table = 0, 
+    .total_tables = 3
+  };
+  RenderParams render_params = {0};
+  FSParams fs_params = {0};
+  KBParams kb_params = {0};
 
-  // previous cell coordinates
-  int prev_row = 0;
-  int prev_col = 0;
-
-  int start_row = 0;
-  int start_col = 0;
-  volatile uint8_t viewport_changed = 0;
-
-  display_main_menu(total_tables, selected_table);
+  display_main_menu(&menu_params);
 
   HAL_UART_Receive_IT(&huart2, &uart_rx_byte, 1);
-  char buff[MAX_LEN_LINE];
-  int cnt = 0;
-  int edit_row = -2;
-  int edit_col = -2;
-  uint8_t need_rendering = 0;
-  uint16_t count_fentries = 0;
+  // char buff[MAX_LEN_LINE];
+  // int cnt = 0;
+  // int edit_row = -2;
+  // int edit_col = -2;
+  // uint8_t need_rendering = 0;
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    if (cur_state == STATE_MENU) {
-      free_table(table);
-      if (joy_flag) {
-        joy_flag = 0;
-        switch (StableJoyState) {
-          case JOY_UP:{
-            if (selected_table > 0) {
-              selected_table--;
-              display_main_menu(total_tables, selected_table);
-            }
-            break;
-          }
-            
-          case JOY_DOWN:{
-            if (selected_table < total_tables) {
-              selected_table++;
-              display_main_menu(total_tables, selected_table);
-            }
-            break;
-          }
+   switch (cur_state) {
+      case STATE_MENU:
+        process_menu_state(&cur_state, &table, &menu_params, &fs_params, &render_params, &kb_params);
+        break;
 
-          case JOY_SEL:{
-            if (selected_table == total_tables) {
-              if (!fs_browser_mount()) {
-                display_error("Failed to mount SD card");
-                Error_Handler();
-              }
-              count_fentries = display_fs_browser(selected_entry);
+      case STATE_TABLE:
+        process_table_state(&cur_state, &table, &menu_params, &render_params, &kb_params);
+        break;
 
-              cur_state = STATE_FS_BROWSER;
-              break;
-            }
+      case STATE_FS_BROWSER:
+        process_fs_browser_state(&cur_state, &table, &fs_params, &render_params, &kb_params);
+        break;
 
-            table = read_csv_from_strmem(csv_data[selected_table]);
-            if (table == NULL) {
-                display_error("Failed to parse CSV data");
-                break;
-            }
-            evaluate_all(table);
+      default:
+        break;
+   }
 
-            new_row = 0; new_col = 0;
-            start_row = 0; start_col = 0;
-
-            render_table_to_lcd(table, start_row, start_col);
-            highlight_cell(table, new_row, new_col, start_row, start_col);
-
-            cur_state = STATE_TABLE;
-            StableJoyState = JOY_NONE;
-            break;
-          }
-
-          default:
-            break;
-        }
-      }
-    }
-    else if (cur_state == STATE_TABLE) {
-      if (ts_flag || is_tracking) 
-      {
-        ts_flag = 0;
-
-        ts_status = BSP_TS_GetState(&TS_State);
-        calibrate_coords(&TS_State.touchX[0], &TS_State.touchY[0]);
-
-        uint16_t click_x = 0, click_y = 0;
-        uint8_t gest_id = getGestureID(&TS_State, &click_x, &click_y);
-        // BSP_LCD_DrawEllipse(click_x, click_y, 10, 10);
-
-        int old_s_row = start_row;
-        int old_s_col = start_col;
-
-        if (gest_id != GEST_ID_NO_GESTURE){          
-          switch (gest_id) {
-            case GEST_ID_MOVE_LEFT: {
-              if (can_scroll_right(table, start_row, start_col)) start_col++;
-              break;
-            }
-            case GEST_ID_MOVE_RIGHT: {
-              if (start_col > 0) start_col--;
-              break;
-            }
-            case GEST_ID_MOVE_UP: {
-              if (can_scroll_down(table, start_row)) start_row++;
-              break;
-            }
-            case GEST_ID_MOVE_DOWN: {
-              if (start_row > 0) start_row--;
-              break;
-            }
-            case GEST_ID_CLICK: {
-              int clicked_row = get_clicked_row(start_row, click_y);
-              int clicked_col = get_clicked_col(table, start_col, start_row, click_x);
-
-              if (clicked_row >= -1 && clicked_col >= -1 && (clicked_row != -1 || clicked_col != -1)) {
-                unhighlight_cell(table, new_row, new_col, start_row, start_col);
-                
-                new_row = clicked_row;
-                new_col = clicked_col;
-                close_edit_mode(table, &edit_row, &edit_col, start_row, start_col, viewport_changed, &need_rendering);
-                cnt = 0;
-                buff[cnt] = '\0';
-
-                highlight_cell(table, new_row, new_col, start_row, start_col);
-              }
-              break;
-            }
-          }
-        }
-        
-
-        if (start_col != old_s_col || start_row != old_s_row){
-          render_table_to_lcd(table, start_row, start_col);
-          highlight_cell(table, new_row, new_col, start_row, start_col); 
-        }
-      }
-
-      if (joy_flag) {
-        joy_flag = 0;
-        prev_row = new_row;
-        prev_col = new_col;
-
-        switch (StableJoyState) {
-          case JOY_UP:
-              if (new_row - start_row >= -1) {
-                if ((new_row == 0 && new_col == -1) || new_row == -1) break;
-                new_row--;
-              }
-              break;
-          case JOY_DOWN:
-              if (new_row < table->row_count - 1) {
-                  new_row++;
-              }
-              break;     
-          case JOY_LEFT:
-              if (new_col - start_col >= -1) {
-                if ((new_col == 0 && new_row == -1) || new_col == -1) break;
-                  new_col--;
-              }
-              break;
-          case JOY_RIGHT:
-              if (new_col < table->col_count - 1) {
-                  new_col++;
-              }
-              break;
-
-          case JOY_SEL:
-              if (selected_table == total_tables) {
-                save_table(table, current_path);
-              }
-              free_table(table);
-              table = NULL;
-              display_main_menu(total_tables, selected_table);
-              StableJoyState = JOY_NONE; // disable irq ?
-              cur_state = STATE_MENU;
-              break;
-          default:
-              break;
-        }
-
-        if (StableJoyState != JOY_NONE) {
-            close_edit_mode(table, &edit_row, &edit_col, start_row, start_col, viewport_changed, &need_rendering);
-            cnt = 0;
-            buff[cnt] = '\0';
-            update_viewport(new_row, new_col, &start_row, &start_col, table, &viewport_changed);
-
-            if (viewport_changed) {
-                render_table_to_lcd(table, start_row, start_col);
-            }
-
-            else {
-              unhighlight_cell(table, prev_row, prev_col, start_row, start_col);
-            }
-
-            if (!highlight_cell(table, new_row, new_col, start_row, start_col)) {
-              new_row = prev_row;
-              new_col = prev_col;
-              highlight_cell(table, new_row, new_col, start_row, start_col);
-
-            }
-          
-        }  
-      }
-
-      if (newChar_flag && new_row != -1 && new_col != -1) {
-
-        int dummyX = 0, dummyY = 0;
-        find_cell_pos(table, new_row, new_col, &dummyX, &dummyY, start_row, start_col);
-        dummyY += LCD_DEFAULT_FONT.Height / 2;
-        Cell* cell = &table->grid[new_row  * table->col_count + new_col];
-
-        if ((cnt == 0 && buff[0] == '\0')){
-          edit_col = new_col;
-          edit_row = new_row;
-          if (cell->raw_data != NULL) {
-            cnt = strlen(cell->raw_data);
-            strncpy(buff, cell->raw_data, cnt);
-          }
-          else {
-            cnt = 0;
-          }
-          
-          buff[cnt] = '\0';
-          clear_cell(table, new_row, new_col, start_row, start_col, (uint16_t)0x74FA);
-        }
-
-        if (uart_rx_byte == '\n' || uart_rx_byte == '\r') {
-          buff[cnt] = '\0';
-          if (new_row == -1) {}
-          else if (new_col == -1) {}
-          else {
-            int old_max_col_w = get_max_col_len(table,  start_row, new_col, start_col);
-            cell->raw_data = arena_strdup(&table_arena, buff);
-            cell->state = RAW;
-            if (evaluate_all(table)) {
-              need_rendering = 1;
-            }
-            if (old_max_col_w != get_max_col_len(table,  start_row, new_col, start_col) || need_rendering) {
-              update_viewport(new_row, new_col, &start_row, &start_col, table, &viewport_changed);
-              render_table_to_lcd(table, start_row, start_col);
-              need_rendering = 0;
-            }
-            highlight_cell(table, new_row, new_col, start_row, start_col);
-          }
-          cnt = 0;
-          buff[cnt] = '\0';
-          edit_row = -2;
-          edit_col = -2;
-        }
-
-        else {
-          if (cnt < MAX_LEN_FIELD) {
-            if (uart_rx_byte == '\b' && cnt > 0) {
-              buff[cnt] = '\0';
-              buff[--cnt] = '\b';
-              int cur_col = get_clicked_col(table, start_col, start_row, dummyX+(cnt+1)*LCD_DEFAULT_FONT.Width);
-              uint16_t cur_color = get_cell_color(edit_row, cur_col);
-              BSP_LCD_SetTextColor(cur_color);
-              BSP_LCD_SetBackColor(cur_color);
-              BSP_LCD_FillRect(dummyX+(cnt+1)*LCD_DEFAULT_FONT.Width, dummyY - LCD_DEFAULT_FONT.Height / 2, LCD_DEFAULT_FONT.Width, 24); // cell_h = OFFSET_LINE
-              BSP_LCD_SetBackColor((uint16_t)0x74FA);
-              int dummyx2 = 0;
-              find_cell_pos(table, edit_row, cur_col, &dummyx2, &(int){0}, start_row, start_col);
-              if (dummyx2 > dummyX+(cnt)*LCD_DEFAULT_FONT.Width) {
-                draw_cell(table, edit_row, cur_col, &(int){0}, &(int){0}, start_row, start_col, cur_color, 0);
-                BSP_LCD_SetBackColor((uint16_t)0x74FA);
-              }
-            }
-            else if (uart_rx_byte != '\b') {
-              buff[cnt++] = uart_rx_byte;
-              buff[cnt] = '\0';
-            }
-            // draw rectangle
-            int cell_w = get_max_col_len(table, start_row, new_col, start_col);
-            // + FONT_SIZE
-            if (cell_w < (cnt+1) * LCD_DEFAULT_FONT.Width) {
-              cell_w = (cnt+1) * LCD_DEFAULT_FONT.Width;
-              need_rendering = 1;
-            }
-            if (dummyX + (cnt+1) * LCD_DEFAULT_FONT.Width > 240) {
-              buff[--cnt] = '\0';
-              cell_w -= LCD_DEFAULT_FONT.Width;
-            }; // >= SCREEN_WIDTH
-
-            BSP_LCD_SetTextColor((uint16_t)0x74FA);
-            BSP_LCD_FillRect(dummyX, dummyY-LCD_DEFAULT_FONT.Height / 2, cell_w, 24); // cell_h = OFFSET_LINE
-            BSP_LCD_SetTextColor(LCD_COLOR_DARKBLUE);
-            BSP_LCD_DisplayStringAt(dummyX, dummyY, (uint8_t*) buff, 0);
-          }
-
-          BSP_LCD_DisplayChar(dummyX+(cnt)*LCD_DEFAULT_FONT.Width, dummyY, '_');
-        }
-
-        newChar_flag = 0;
-      }
-    }
-
-    else if (cur_state == STATE_FS_BROWSER) {
-      if (joy_flag) {
-        joy_flag = 0;
-        switch (StableJoyState) {
-          case JOY_UP: {
-            if (selected_entry > 0) {
-              selected_entry--;
-              count_fentries = display_fs_browser(selected_entry);
-            }
-            break;
-          }
-            
-          case JOY_DOWN: {
-            if (selected_entry < count_fentries - 1) { // fix this boundary
-              selected_entry++;
-              count_fentries = display_fs_browser(selected_entry);
-            }
-            break;
-          }
-
-          case JOY_SEL:{
-            // Implement file system browser logic here
-            if (!entries_buff[selected_entry].is_dir) {
-              fs_path_append(current_path, entries_buff[selected_entry].name);
-              table = read_csv_from_file(entries_buff[selected_entry].name);
-              if (table == NULL) {
-                display_error("Failed to parse CSV data");
-                break;
-              }
-              evaluate_all(table);
-
-              new_row = 0; new_col = 0;
-              start_row = 0; start_col = 0;
-
-              render_table_to_lcd(table, start_row, start_col);
-              highlight_cell(table, new_row, new_col, start_row, start_col);
-
-              cur_state = STATE_TABLE;
-              StableJoyState = JOY_NONE;
-            }
-
-            else {
-              if (strcmp(entries_buff[selected_entry].name, "..") == 0) {
-                fs_path_remove_last(current_path);
-              }
-
-              else {
-                fs_path_append(current_path, entries_buff[selected_entry].name);
-              }
-              selected_entry = 0;
-              count_fentries = display_fs_browser(selected_entry);
-            }
-
-            break;
-          }
-
-          default:
-            break;
-        }
-      }
-    }
     /* USER CODE END WHILE */
     //MX_USB_HOST_Process();
     /* USER CODE BEGIN 3 */
@@ -946,7 +637,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 }
 
 
-
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
   if (GPIO_Pin == CTP_INT_Pin) {
     ts_flag = 1;
@@ -957,6 +647,325 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
   if (huart->Instance == USART2) {
       newChar_flag = 1;
       HAL_UART_Receive_IT(&huart2, &uart_rx_byte, 1);
+  }
+}
+
+void process_menu_state(AppState* cur_state, Table** table, MenuParams* menu_params, FSParams* fs_params, RenderParams* render_params, KBParams* kb_params){
+  if (*table != NULL) {
+    free_table(*table);
+    *table = NULL;
+  }
+  if (!joy_flag) {
+    return;
+  }
+  
+  joy_flag = 0;
+  switch (StableJoyState) {
+    case JOY_UP:{
+      if (menu_params->selected_table > 0) {
+        menu_params->selected_table--;
+        display_main_menu(menu_params);
+      }
+      break;
+    }
+            
+    case JOY_DOWN:{
+      if (menu_params->selected_table < menu_params->total_tables) {
+        menu_params->selected_table++;
+        display_main_menu(menu_params);
+      }
+      break;
+    }
+
+    case JOY_SEL:{
+      if (menu_params->selected_table == menu_params->total_tables) {
+        if (!fs_browser_mount()) {
+          display_error("Failed to mount SD card");
+          Error_Handler();
+        }
+        fs_params->count_fentries = display_fs_browser(fs_params->selected_entry);
+
+        *cur_state = STATE_FS_BROWSER;
+        break;
+      }
+
+      *table = read_csv_from_strmem(csv_data[menu_params->selected_table]);
+      if (*table == NULL) {
+        display_error("Failed to parse CSV data");
+        break;
+      }
+
+      evaluate_all(*table);
+      *render_params = (RenderParams){0};
+
+      render_table_to_lcd(*table, render_params->start_row, render_params->start_col);
+      highlight_cell(*table, 
+          render_params->new_row, render_params->new_col, 
+          render_params->start_row, render_params->start_col);
+
+      *cur_state = STATE_TABLE;
+      StableJoyState = JOY_NONE;
+      break;
+    }
+
+    default:
+      break;
+  }
+}
+
+void process_table_state(AppState* cur_state, Table** table, MenuParams* menu_params, RenderParams* render_params, KBParams* kb_params) {
+  if (ts_flag || is_tracking) {
+    ts_flag = 0;
+
+    BSP_TS_GetState(&TS_State);
+    calibrate_coords(&TS_State.touchX[0], &TS_State.touchY[0]);
+
+    uint16_t click_x = 0, click_y = 0;
+    uint8_t gest_id = getGestureID(&TS_State, &click_x, &click_y);
+
+    int old_s_row = render_params->start_row;
+    int old_s_col = render_params->start_col;
+
+    if (gest_id != GEST_ID_NO_GESTURE) {          
+      switch (gest_id) {
+        case GEST_ID_MOVE_LEFT:
+          if (can_scroll_right(*table, render_params->start_row, render_params->start_col)) render_params->start_col++;
+          break;
+        case GEST_ID_MOVE_RIGHT:
+          if (render_params->start_col > 0) render_params->start_col--;
+          break;
+        case GEST_ID_MOVE_UP:
+          if (can_scroll_down(*table, render_params->start_row)) render_params->start_row++;
+          break;
+        case GEST_ID_MOVE_DOWN:
+          if (render_params->start_row > 0) render_params->start_row--;
+          break;
+        case GEST_ID_CLICK: {
+          int clicked_row = get_clicked_row(render_params->start_row, click_y);
+          int clicked_col = get_clicked_col(*table, render_params->start_col, render_params->start_row, click_x);
+
+          if (clicked_row >= -1 && clicked_col >= -1 && (clicked_row != -1 || clicked_col != -1)) {
+            unhighlight_cell(*table, render_params->new_row, render_params->new_col, render_params->start_row, render_params->start_col);
+            
+            render_params->new_row = clicked_row;
+            render_params->new_col = clicked_col;
+            close_edit_mode(*table, &kb_params->edit_row, &kb_params->edit_col, render_params->start_row, render_params->start_col, render_params->viewport_changed, &kb_params->need_rendering);
+            kb_params->cnt = 0;
+            kb_params->buff[0] = '\0';
+
+            highlight_cell(*table, render_params->new_row, render_params->new_col, render_params->start_row, render_params->start_col);
+          }
+          break;
+        }
+      }
+    }
+
+    if (render_params->start_col != old_s_col || render_params->start_row != old_s_row) {
+      render_table_to_lcd(*table, render_params->start_row, render_params->start_col);
+      highlight_cell(*table, render_params->new_row, render_params->new_col, render_params->start_row, render_params->start_col); 
+    }
+  }
+
+  if (joy_flag) {
+    joy_flag = 0;
+    render_params->prev_row = render_params->new_row;
+    render_params->prev_col = render_params->new_col;
+
+    switch (StableJoyState) {
+      case JOY_UP:
+        if (render_params->new_row - render_params->start_row >= -1) {
+          if ((render_params->new_row == 0 && render_params->new_col == -1) || render_params->new_row == -1) break;
+          render_params->new_row--;
+        }
+        break;
+      case JOY_DOWN:
+        if (render_params->new_row < (*table)->row_count - 1) {
+            render_params->new_row++;
+        }
+        break;     
+      case JOY_LEFT:
+        if (render_params->new_col - render_params->start_col >= -1) {
+          if ((render_params->new_col == 0 && render_params->new_row == -1) || render_params->new_col == -1) break;
+            render_params->new_col--;
+        }
+        break;
+      case JOY_RIGHT:
+        if (render_params->new_col < (*table)->col_count - 1) {
+            render_params->new_col++;
+        }
+        break;
+
+      case JOY_SEL:
+        if (menu_params->selected_table == menu_params->total_tables) {
+          save_table(*table, current_path);
+        }
+        free_table(*table);
+        *table = NULL;
+        display_main_menu(menu_params);
+        StableJoyState = JOY_NONE;
+        *cur_state = STATE_MENU;
+        return;
+
+      default:
+        break;
+    }
+
+    if (StableJoyState != JOY_NONE) {
+        close_edit_mode(*table, &kb_params->edit_row, &kb_params->edit_col, render_params->start_row, render_params->start_col, render_params->viewport_changed, &kb_params->need_rendering);
+        kb_params->cnt = 0;
+        kb_params->buff[0] = '\0';
+        update_viewport(render_params->new_row, render_params->new_col, &render_params->start_row, &render_params->start_col, *table, &render_params->viewport_changed);
+
+        if (render_params->viewport_changed) {
+            render_table_to_lcd(*table, render_params->start_row, render_params->start_col);
+        } else {
+            unhighlight_cell(*table, render_params->prev_row, render_params->prev_col, render_params->start_row, render_params->start_col);
+        }
+
+        if (!highlight_cell(*table, render_params->new_row, render_params->new_col, render_params->start_row, render_params->start_col)) {
+          render_params->new_row = render_params->prev_row;
+          render_params->new_col = render_params->prev_col;
+          highlight_cell(*table, render_params->new_row, render_params->new_col, render_params->start_row, render_params->start_col);
+        }
+    }  
+  }
+
+  if (newChar_flag && render_params->new_row != -1 && render_params->new_col != -1) {
+    int dummyX = 0, dummyY = 0;
+    find_cell_pos(*table, render_params->new_row, render_params->new_col, &dummyX, &dummyY, render_params->start_row, render_params->start_col);
+    dummyY += LCD_DEFAULT_FONT.Height / 2;
+    Cell* cell = &(*table)->grid[render_params->new_row * (*table)->col_count + render_params->new_col];
+
+    if (kb_params->cnt == 0 && kb_params->buff[0] == '\0') {
+      kb_params->edit_col = render_params->new_col;
+      kb_params->edit_row = render_params->new_row;
+      if (cell->raw_data != NULL) {
+        kb_params->cnt = strlen(cell->raw_data);
+        strncpy(kb_params->buff, cell->raw_data, kb_params->cnt);
+      } else {
+        kb_params->cnt = 0;
+      }
+      
+      kb_params->buff[kb_params->cnt] = '\0';
+      clear_cell(*table, render_params->new_row, render_params->new_col, render_params->start_row, render_params->start_col, (uint16_t)0x74FA);
+    }
+
+    if (uart_rx_byte == '\n' || uart_rx_byte == '\r') {
+      kb_params->buff[kb_params->cnt] = '\0';
+      if (render_params->new_row != -1 && render_params->new_col != -1) {
+        int old_max_col_w = get_max_col_len(*table, render_params->start_row, render_params->new_col, render_params->start_col);
+        cell->raw_data = arena_strdup(&table_arena, kb_params->buff);
+        cell->state = RAW;
+        if (evaluate_all(*table)) {
+          kb_params->need_rendering = 1;
+        }
+        if (old_max_col_w != get_max_col_len(*table, render_params->start_row, render_params->new_col, render_params->start_col) || kb_params->need_rendering) {
+          update_viewport(render_params->new_row, render_params->new_col, &render_params->start_row, &render_params->start_col, *table, &render_params->viewport_changed);
+          render_table_to_lcd(*table, render_params->start_row, render_params->start_col);
+          kb_params->need_rendering = 0;
+        }
+        highlight_cell(*table, render_params->new_row, render_params->new_col, render_params->start_row, render_params->start_col);
+      }
+      kb_params->cnt = 0;
+      kb_params->buff[0] = '\0';
+      kb_params->edit_row = -2;
+      kb_params->edit_col = -2;
+
+    } else {
+      if (kb_params->cnt < MAX_LEN_FIELD) {
+        if (uart_rx_byte == '\b' && kb_params->cnt > 0) {
+          kb_params->buff[kb_params->cnt] = '\0';
+          kb_params->buff[--kb_params->cnt] = '\b';
+          int cur_col = get_clicked_col(*table, render_params->start_col, render_params->start_row, dummyX + (kb_params->cnt + 1) * LCD_DEFAULT_FONT.Width);
+          uint16_t cur_color = get_cell_color(kb_params->edit_row, cur_col);
+          BSP_LCD_SetTextColor(cur_color);
+          BSP_LCD_SetBackColor(cur_color);
+          BSP_LCD_FillRect(dummyX + (kb_params->cnt + 1) * LCD_DEFAULT_FONT.Width, dummyY - LCD_DEFAULT_FONT.Height / 2, LCD_DEFAULT_FONT.Width, 24);
+          BSP_LCD_SetBackColor((uint16_t)0x74FA);
+          int dummyx2 = 0;
+          find_cell_pos(*table, kb_params->edit_row, cur_col, &dummyx2, &(int){0}, render_params->start_row, render_params->start_col);
+          if (dummyx2 > dummyX + (kb_params->cnt) * LCD_DEFAULT_FONT.Width) {
+            draw_cell(*table, kb_params->edit_row, cur_col, &(int){0}, &(int){0}, render_params->start_row, render_params->start_col, cur_color, 0);
+            BSP_LCD_SetBackColor((uint16_t)0x74FA);
+          }
+        } else if (uart_rx_byte != '\b') {
+          kb_params->buff[kb_params->cnt++] = uart_rx_byte;
+          kb_params->buff[kb_params->cnt] = '\0';
+        }
+
+        int cell_w = get_max_col_len(*table, render_params->start_row, render_params->new_col, render_params->start_col);
+        if (cell_w < (kb_params->cnt + 1) * LCD_DEFAULT_FONT.Width) {
+          cell_w = (kb_params->cnt + 1) * LCD_DEFAULT_FONT.Width;
+          kb_params->need_rendering = 1;
+        }
+        if (dummyX + (kb_params->cnt + 1) * LCD_DEFAULT_FONT.Width > 240) {
+          kb_params->buff[--kb_params->cnt] = '\0';
+          cell_w -= LCD_DEFAULT_FONT.Width;
+        }
+
+        BSP_LCD_SetTextColor((uint16_t)0x74FA);
+        BSP_LCD_FillRect(dummyX, dummyY - LCD_DEFAULT_FONT.Height / 2, cell_w, 24);
+        BSP_LCD_SetTextColor(LCD_COLOR_DARKBLUE);
+        BSP_LCD_DisplayStringAt(dummyX, dummyY, (uint8_t*)kb_params->buff, 0);
+      }
+
+      BSP_LCD_DisplayChar(dummyX + (kb_params->cnt) * LCD_DEFAULT_FONT.Width, dummyY, '_');
+    }
+
+    newChar_flag = 0;
+  }
+}
+
+void process_fs_browser_state(AppState* cur_state, Table** table, FSParams* fs_params, RenderParams* render_params, KBParams* kb_params) {
+  if (joy_flag) {
+    joy_flag = 0;
+    switch (StableJoyState) {
+      case JOY_UP:
+        if (fs_params->selected_entry > 0) {
+          fs_params->selected_entry--;
+          fs_params->count_fentries = display_fs_browser(fs_params->selected_entry);
+        }
+        break;
+        
+      case JOY_DOWN:
+        if (fs_params->selected_entry < fs_params->count_fentries - 1) {
+          fs_params->selected_entry++;
+          fs_params->count_fentries = display_fs_browser(fs_params->selected_entry);
+        }
+        break;
+
+      case JOY_SEL:
+        if (!entries_buff[fs_params->selected_entry].is_dir) {
+          fs_path_append(current_path, entries_buff[fs_params->selected_entry].name);
+          *table = read_csv_from_file(entries_buff[fs_params->selected_entry].name);
+          if (*table == NULL) {
+            display_error("Failed to parse CSV data");
+            break;
+          }
+          evaluate_all(*table);
+
+          *render_params = (RenderParams){0};
+          *kb_params = (KBParams){ .edit_row = -2, .edit_col = -2 };
+
+          render_table_to_lcd(*table, render_params->start_row, render_params->start_col);
+          highlight_cell(*table, render_params->new_row, render_params->new_col, render_params->start_row, render_params->start_col);
+
+          *cur_state = STATE_TABLE;
+          StableJoyState = JOY_NONE;
+        } else {
+          if (strcmp(entries_buff[fs_params->selected_entry].name, "..") == 0) {
+            fs_path_remove_last(current_path);
+          } else {
+            fs_path_append(current_path, entries_buff[fs_params->selected_entry].name);
+          }
+          fs_params->selected_entry = 0;
+          fs_params->count_fentries = display_fs_browser(fs_params->selected_entry);
+        }
+        break;
+
+      default:
+        break;
+    }
   }
 }
 /* USER CODE END 4 */

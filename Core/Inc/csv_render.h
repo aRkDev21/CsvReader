@@ -16,10 +16,24 @@
 
 #include "stm32412g_discovery.h"
 #include "stm32412g_discovery_lcd.h"
+#include "menu_render.h"
 
-void init_lcd();
+typedef struct {
+  // selected cell coordinates
+  int new_row;
+  int new_col;
+
+  // previous cell coordinates
+  int prev_row;
+  int prev_col;
+
+  int start_row;
+  int start_col;
+
+  volatile uint8_t viewport_changed;
+} RenderParams;
+
 void display_error(const char* error_text);
-void display_main_menu(uint8_t count, uint8_t selected);
 void find_cell_pos(Table* t, int row, int col, int* x, int* y, int start_row, int start_col);
 int get_clicked_row(int start_row, int y);
 int get_clicked_col(Table* table, int start_col, int start_row, int x);
