@@ -100,6 +100,7 @@ static TS_StateTypeDef TS_State = {0};
 uint8_t uart_rx_byte;
 volatile uint8_t newChar_flag = 0;
 
+extern ApplicationTypeDef Appli_state;
 extern FS_Entry entries_buff[MAX_ENTRIES];
 extern char current_path[MAX_PATH_LEN];
 extern uint8_t is_tracking;

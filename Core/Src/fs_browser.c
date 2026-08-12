@@ -13,7 +13,7 @@ uint8_t fs_browser_mount() {
         return 0;
     }
     
-    FRESULT res = f_mount(&SDFatFS, (TCHAR const*)SDPath, 0);
+    FRESULT res = f_mount(&SDFatFS, (TCHAR const*)SDPath, 1);
     strcpy(current_path, SDPath);
     return (res == FR_OK);
 }
